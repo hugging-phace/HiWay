@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HiWay Test</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="../node_modules/chart.js/dist/chart.umd.js"></script>
+</head>
+<body>
+  <div id="app">
+    <section id="auth-screen" class="screen active">
+      <div class="auth-card glass-card">
+        <div class="auth-brand">
+          <div class="brand-orb"></div>
+          <h1>HiWay</h1>
+          <p>Your productivity, amplified.</p>
+        </div>
+        <div id="auth-toggle" class="segmented-control">
+          <button data-mode="login" class="active">Log In</button>
+          <button data-mode="create">Create Account</button>
+        </div>
+        <form id="auth-form" class="auth-form" autocomplete="off">
+          <div class="input-wrap"><input type="text" id="auth-username" placeholder="Username" required></div>
+          <div class="input-wrap"><input type="password" id="auth-password" placeholder="Password" required></div>
+          <div class="input-wrap" id="confirm-wrap" style="display:none;"><input type="password" id="auth-confirm" placeholder="Confirm Password"></div>
+          <button type="submit" class="primary-btn liquid-btn">Enter HiWay</button>
+          <p id="auth-error" class="error-text"></p>
+        </form>
+      </div>
+    </section>
+
+    <section id="main-screen" class="screen">
+      <aside class="sidebar glass-panel">
+        <div class="sidebar-brand"><div class="brand-orb"></div><span>HiWay</span></div>
+        <nav class="nav">
+          <button data-view="dashboard" class="nav-item active"><span class="nav-icon">◈</span><span class="nav-label">Dashboard</span></button>
+          <button data-view="calendar" class="nav-item"><span class="nav-icon">◴</span><span class="nav-label">Calendar</span></button>
+          <button data-view="projects" class="nav-item"><span class="nav-icon">◬</span><span class="nav-label">Projects</span></button>
+          <button data-view="notes" class="nav-item"><span class="nav-icon">✦</span><span class="nav-label">Brainstorm</span></button>
+        </nav>
+        <div class="sidebar-footer">
+          <button id="theme-toggle" class="icon-btn" title="Toggle theme">◐</button>
+          <button id="logout-btn" class="icon-btn" title="Log out">⎋</button>
+        </div>
+      </aside>
+
+      <main class="content">
+        <div class="views-container">
+          <header class="topbar glass-panel">
+            <h2 id="page-title">Dashboard</h2>
+            <div class="user-pill glass-pill"><span id="current-user">@user</span></div>
+          </header>
+
+          <div id="view-dashboard" class="view active">
+            <div class="dashboard-grid">
+              <div class="tile glass-card kpi-tile"><h3>Tasks Done</h3><span class="kpi-value" id="kpi-done">0</span></div>
+              <div class="tile glass-card kpi-tile"><h3>This Week</h3><span class="kpi-value" id="kpi-week">0</span></div>
+              <div class="tile glass-card kpi-tile"><h3>Projects</h3><span class="kpi-value" id="kpi-projects">0</span></div>
+              <div class="tile glass-card kpi-tile"><h3>Completion</h3><span class="kpi-value" id="kpi-rate">0%</span></div>
+              <div class="tile glass-card chart-tile wide"><h3>Activity Pulse</h3><canvas id="activity-chart"></canvas></div>
+              <div class="tile glass-card chart-tile"><h3>Task Distribution</h3><canvas id="distribution-chart"></canvas></div>
+              <div class="tile glass-card chart-tile"><h3>Project Velocity</h3><canvas id="velocity-chart"></canvas></div>
+              <div class="tile glass-card wide"><h3>Recent Wins</h3><ul id="recent-wins" class="win-list"></ul></div>
+            </div>
+          </div>
+
+          <div id="view-calendar" class="view">
+            <div class="calendar-shell glass-card">
+              <div class="calendar-controls">
+                <div class="segmented-control" id="cal-mode">
+                  <button data-mode="month">Month</button>
+                  <button data-mode="week">Week</button>
+                  <button data-mode="day">Day</button>
+                </div>
+                <div class="cal-nav">
+                  <button id="cal-prev" class="icon-btn">‹</button>
+                  <h3 id="cal-label">August 2026</h3>
+                  <button id="cal-next" class="icon-btn">›</button>
+                </div>
+              </div>
+              <div id="calendar-body" class="calendar-body"></div>
+            </div>
+            <div class="task-panel glass-card">
+              <h3 id="selected-date-label">Select a date</h3>
+              <div class="task-input-row"><input type="text" id="new-task-input" placeholder="Add a task for this date..."><button id="add-task-btn" class="primary-btn liquid-btn">+</button></div>
+              <ul id="task-list" class="task-list"></ul>
+            </div>
+          </div>
+
+          <div id="view-projects" class="view">
+            <div class="projects-header"><input type="text" id="new-project-input" placeholder="New project or big idea..." class="glass-input"><button id="add-project-btn" class="primary-btn liquid-btn">Create Project</button></div>
+            <div id="projects-list" class="projects-list"></div>
+          </div>
+
+          <div id="view-notes" class="view">
+            <div class="notes-layout">
+              <aside class="notes-sidebar glass-panel">
+                <button id="new-note-btn" class="primary-btn liquid-btn">+ New Note</button>
+                <ul id="notes-list" class="notes-list"></ul>
+              </aside>
+              <div class="note-editor glass-card">
+                <input type="text" id="note-title" placeholder="Untitled brainstorm" class="glass-input">
+                <textarea id="note-body" placeholder="Dump ideas, links, sketches..."></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </section>
+  </div>
+
+  <script src="test-mock.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
