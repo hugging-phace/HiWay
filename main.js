@@ -35,6 +35,7 @@ function createWindow() {
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     transparent: false,
     frame: true,
+    autoHideMenuBar: true,
     backgroundColor: '#0b0c15',
     icon: iconPath,
     webPreferences: {
