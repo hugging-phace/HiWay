@@ -355,6 +355,10 @@ function updateCharts() {
     });
   }
 
+  const allTasks = getAllTasks();
+  const done = allTasks.filter(t => t.done).length;
+  const total = allTasks.length;
+
   const weeks = getLast8Weeks();
   const labels = weeks.map(w => {
     const d = new Date(w);
