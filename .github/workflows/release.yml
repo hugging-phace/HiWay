@@ -13,6 +13,7 @@ jobs:
     name: Build ${{ matrix.os }} installer
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: macos-latest
@@ -34,11 +35,19 @@ jobs:
       - name: Build installer
         run: npm run ${{ matrix.script }}
 
+      - name: Stage installer
+        shell: bash
+        run: |
+          mkdir -p install
+          cp dist/HiWay-*.dmg dist/HiWay-*.exe install/ 2>/dev/null || true
+          ls -la install/
+
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.os }}-installer
-          path: dist/*.{dmg,exe}
+          path: install/
+          if-no-files-found: error
 
   release:
     name: Publish GitHub Release
@@ -59,6 +68,6 @@ jobs:
           tag_name: ${{ github.event.inputs.tag }}
           name: HiWay ${{ github.event.inputs.tag }}
           files: |
-            artifacts/**/*.dmg
-            artifacts/**/*.exe
+            artifacts/**/HiWay-*.dmg
+            artifacts/**/HiWay-*.exe
           token: ${{ secrets.GITHUB_TOKEN }}

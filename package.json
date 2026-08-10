@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "HiWay - futuristic task and productivity manager for Mac and Windows",
   "main": "main.js",
+  "author": "hugging-phace",
   "scripts": {
     "start": "electron .",
     "build:win": "electron-builder --win",
@@ -16,6 +17,7 @@
     "directories": {
       "output": "dist"
     },
+    "publish": null,
     "files": [
       "main.js",
       "preload.js",
@@ -23,10 +25,12 @@
       "build/**/*"
     ],
     "mac": {
-      "target": "dmg"
+      "target": "dmg",
+      "artifactName": "${productName}-${version}.${ext}"
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "artifactName": "${productName}-${version}.${ext}"
     }
   },
   "devDependencies": {
