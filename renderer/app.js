@@ -979,15 +979,28 @@ function initLiquidEffects() {
     });
   });
 
-  document.querySelectorAll('.tile, .project-card, .auth-card, .glass-card, .modal-card').forEach(el => {
+  document.querySelectorAll('.tile, .project-card, .auth-card, .modal-card, .deferred-item').forEach(el => {
     el.classList.add('tilt-card');
+    let raf = null;
+    let pending = null;
     el.addEventListener('mousemove', e => {
-      const rect = el.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / rect.width - 0.5;
-      const y = (e.clientY - rect.top) / rect.height - 0.5;
-      el.style.transform = `perspective(800px) rotateX(${y * -6}deg) rotateY(${x * 6}deg) scale(1.01)`;
+      pending = { clientX: e.clientX, clientY: e.clientY };
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = null;
+        const evt = pending;
+        pending = null;
+        if (!evt) return;
+        const rect = el.getBoundingClientRect();
+        const x = (evt.clientX - rect.left) / rect.width - 0.5;
+        const y = (evt.clientY - rect.top) / rect.height - 0.5;
+        el.style.transform = `perspective(800px) rotateX(${y * -6}deg) rotateY(${x * 6}deg) scale(1.01)`;
+      });
     });
     el.addEventListener('mouseleave', () => {
+      if (raf) cancelAnimationFrame(raf);
+      raf = null;
+      pending = null;
       el.style.transform = 'perspective(800px) rotateX(0) rotateY(0) scale(1)';
     });
   });
