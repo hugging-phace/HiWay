@@ -70,6 +70,8 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.tag }}
           name: HiWay ${{ github.event.inputs.tag }}
+          generate_release_notes: true
+          make_latest: true
           files: |
             artifacts/**/HiWay-*.dmg
             artifacts/**/HiWay-*.exe
