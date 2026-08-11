@@ -27,7 +27,7 @@
     "mac": {
       "target": "dmg",
       "artifactName": "${productName}-${version}.${ext}",
-      "icon": "build/icon-mac.png"
+      "icon": "build/icon.icon"
     },
     "win": {
       "target": "nsis",
@@ -36,7 +36,7 @@
   },
   "devDependencies": {
     "electron": "^31.0.0",
-    "electron-builder": "^24.0.0"
+    "electron-builder": "^26.15.7"
   },
   "dependencies": {
     "chart.js": "^4.4.3"

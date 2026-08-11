@@ -39,6 +39,7 @@
 
     <!-- Main app -->
     <section id="main-screen" class="screen">
+      <header class="titlebar mac-only" aria-hidden="true">HiWay</header>
       <aside class="sidebar glass-panel">
         <div class="sidebar-brand">
           <img src="assets/logo.png" class="brand-logo-sm" alt="HiWay" draggable="false">
@@ -79,21 +80,25 @@
         <!-- Dashboard -->
         <div id="view-dashboard" class="view active">
           <div class="dashboard-grid">
-            <div class="tile glass-card kpi-tile">
-              <h3>Tasks Done</h3>
-              <span class="kpi-value" id="kpi-done">0</span>
+            <div class="tile glass-card kpi-tile kpi-week" data-type="week">
+              <h3>Completed this Week</h3>
+              <span class="kpi-value" id="kpi-week"><span id="kpi-week-done">0</span>/<span id="kpi-week-total">0</span></span>
+              <span class="kpi-sub">scheduled</span>
             </div>
-            <div class="tile glass-card kpi-tile">
-              <h3>This Week</h3>
-              <span class="kpi-value" id="kpi-week">0</span>
+            <div class="tile glass-card kpi-tile kpi-month" data-type="month">
+              <h3>Upcoming This Month</h3>
+              <span class="kpi-value" id="kpi-month">0</span>
+              <span class="kpi-sub" id="kpi-month-sub">ahead of schedule</span>
             </div>
-            <div class="tile glass-card kpi-tile">
+            <div class="tile glass-card kpi-tile kpi-rollover" data-type="rollover">
+              <h3>Rollover Rate</h3>
+              <span class="kpi-value" id="kpi-rollover">0%</span>
+              <span class="kpi-sub" id="kpi-rollover-label">on track</span>
+            </div>
+            <div class="tile glass-card kpi-tile kpi-projects" data-type="projects">
               <h3>Projects</h3>
               <span class="kpi-value" id="kpi-projects">0</span>
-            </div>
-            <div class="tile glass-card kpi-tile">
-              <h3>Completion</h3>
-              <span class="kpi-value" id="kpi-rate">0%</span>
+              <span class="kpi-sub" id="kpi-projects-sub">active</span>
             </div>
             <div class="tile glass-card full waypoint-tracker">
               <div class="waypoint-header">
@@ -117,6 +122,22 @@
             <div class="tile glass-card wide">
               <h3>Recent Wins</h3>
               <ul id="recent-wins" class="win-list"></ul>
+            </div>
+          </div>
+
+          <!-- Dashboard detail overlay -->
+          <div id="dashboard-detail" class="dashboard-detail">
+            <div class="detail-card glass-card">
+              <header class="detail-header">
+                <div class="detail-title-block">
+                  <h2 id="detail-title">Dashboard</h2>
+                  <span class="detail-value" id="detail-value">0</span>
+                  <p class="detail-subtitle" id="detail-subtitle"></p>
+                </div>
+                <button class="detail-close" id="detail-close" aria-label="Close">×</button>
+              </header>
+              <div class="detail-body" id="detail-body"></div>
+              <div class="detail-add" id="detail-add"></div>
             </div>
           </div>
         </div>
