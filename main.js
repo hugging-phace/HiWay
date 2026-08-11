@@ -23,7 +23,8 @@ function writeJSON(file, data) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
 }
 
-const iconPath = path.join(__dirname, 'renderer', 'assets', 'logo.png');
+const iconFile = process.platform === 'darwin' ? 'build/icon-mac.png' : 'build/icon.png';
+const iconPath = path.join(__dirname, iconFile);
 
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
