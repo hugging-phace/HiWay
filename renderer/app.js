@@ -15,7 +15,8 @@ const appState = {
   calDate: new Date(),
   calMode: 'month',
   selectedDate: new Date().toISOString().split('T')[0],
-  selectedNoteId: null,
+  selectedBrainstormDay: null,
+  selectedBrainstormNoteId: null,
   charts: {},
   deferredMode: 'postponed'
 };
@@ -898,75 +899,265 @@ function renderProjects() {
   });
 }
 
-/* Notes */
+/* Notes / Brainstorm */
+const BS_CARD_W = 220;
+const BS_CARD_H = 160;
+const BS_GAP = 54;
+
 function initNotes() {
-  document.getElementById('new-note-btn').addEventListener('click', createNote);
-  document.getElementById('note-title').addEventListener('input', saveCurrentNote);
-  document.getElementById('note-body').addEventListener('input', saveCurrentNote);
+  document.getElementById('new-idea-btn').addEventListener('click', createNote);
+  document.getElementById('brainstorm-title').addEventListener('input', saveCurrentNote);
+  document.getElementById('brainstorm-body').addEventListener('input', saveCurrentNote);
+  document.getElementById('prev-idea').addEventListener('click', prevIdea);
+  document.getElementById('next-idea').addEventListener('click', nextIdea);
+  window.addEventListener('resize', () => { if (appState.currentView === 'notes') renderBrainstormStage(); });
+}
+
+function noteDayKey(note) {
+  return dateKey(note.created || note.updated);
+}
+
+function getBrainstormDays() {
+  const days = {};
+  appState.data.notes.forEach(n => {
+    const d = noteDayKey(n);
+    if (!days[d]) days[d] = [];
+    days[d].push(n);
+  });
+  Object.keys(days).forEach(d => days[d].sort((a, b) => new Date(a.created || a.updated) - new Date(b.created || b.updated)));
+  return days;
+}
+
+function getSortedDayKeys(days) {
+  return Object.keys(days).sort((a, b) => new Date(b) - new Date(a));
 }
 
 function createNote() {
-  const note = { id: uuid(), title: 'New brainstorm', body: '', updated: new Date().toISOString() };
-  appState.data.notes.unshift(note);
+  const now = new Date().toISOString();
+  const note = { id: uuid(), title: 'New idea', body: '', created: now, updated: now };
+  appState.data.notes.push(note);
+  appState.selectedBrainstormDay = noteDayKey(note);
+  appState.selectedBrainstormNoteId = note.id;
   scheduleSave();
-  selectNote(note.id);
   renderNotes();
+  setTimeout(() => {
+    const el = document.querySelector(`.brainstorm-card[data-id="${note.id}"]`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  }, 60);
 }
 
 function selectNote(id) {
-  appState.selectedNoteId = id;
+  appState.selectedBrainstormNoteId = id;
   const note = appState.data.notes.find(n => n.id === id);
-  if (!note) return;
-  document.getElementById('note-title').value = note.title;
-  document.getElementById('note-body').value = note.body;
-  renderNotesList();
+  if (note) {
+    document.getElementById('brainstorm-title').value = note.title;
+    document.getElementById('brainstorm-body').value = note.body;
+  }
+  renderBrainstormStage();
+  updateIdeaCounter();
 }
 
 function saveCurrentNote() {
-  const note = appState.data.notes.find(n => n.id === appState.selectedNoteId);
+  const note = appState.data.notes.find(n => n.id === appState.selectedBrainstormNoteId);
   if (!note) return;
-  note.title = document.getElementById('note-title').value || 'Untitled';
-  note.body = document.getElementById('note-body').value;
+  note.title = document.getElementById('brainstorm-title').value || 'Untitled';
+  note.body = document.getElementById('brainstorm-body').value;
   note.updated = new Date().toISOString();
   scheduleSave();
-  renderNotesList();
+  renderDaysRail();
+  renderBrainstormStage();
 }
 
 function deleteNote(id) {
   appState.data.notes = appState.data.notes.filter(n => n.id !== id);
-  if (appState.selectedNoteId === id) appState.selectedNoteId = null;
+  const days = getBrainstormDays();
+  const keys = getSortedDayKeys(days);
+  if (appState.selectedBrainstormNoteId === id) {
+    appState.selectedBrainstormNoteId = null;
+    if (keys.length) {
+      const day = appState.selectedBrainstormDay && days[appState.selectedBrainstormDay] ? appState.selectedBrainstormDay : keys[0];
+      const list = days[day] || days[keys[0]];
+      appState.selectedBrainstormDay = day;
+      appState.selectedBrainstormNoteId = list[0]?.id || null;
+    }
+  }
   scheduleSave();
   renderNotes();
 }
 
-function renderNotes() {
-  if (appState.data.notes.length > 0 && !appState.selectedNoteId) {
-    appState.selectedNoteId = appState.data.notes[0].id;
-    selectNote(appState.selectedNoteId);
-  }
-  renderNotesList();
+function prevIdea() {
+  const days = getBrainstormDays();
+  const list = days[appState.selectedBrainstormDay] || [];
+  const idx = list.findIndex(n => n.id === appState.selectedBrainstormNoteId);
+  if (idx > 0) selectNote(list[idx - 1].id);
 }
 
-function renderNotesList() {
-  const list = document.getElementById('notes-list');
-  list.innerHTML = '';
-  appState.data.notes.forEach(note => {
-    const li = document.createElement('li');
-    li.className = 'note-item' + (note.id === appState.selectedNoteId ? ' active' : '');
-    li.innerHTML = `<h4>${escapeHtml(note.title)}</h4><p>${escapeHtml(note.body).slice(0, 40)}</p>`;
-    li.addEventListener('click', () => selectNote(note.id));
+function nextIdea() {
+  const days = getBrainstormDays();
+  const list = days[appState.selectedBrainstormDay] || [];
+  const idx = list.findIndex(n => n.id === appState.selectedBrainstormNoteId);
+  if (idx >= 0 && idx < list.length - 1) selectNote(list[idx + 1].id);
+}
 
-    const del = document.createElement('button');
-    del.className = 'delete-task';
-    del.textContent = '×';
-    del.style.opacity = '0';
-    del.addEventListener('click', e => { e.stopPropagation(); deleteNote(note.id); });
-    li.appendChild(del);
-    li.addEventListener('mouseenter', () => del.style.opacity = '1');
-    li.addEventListener('mouseleave', () => del.style.opacity = '0');
+function renderNotes() {
+  const days = getBrainstormDays();
+  const keys = getSortedDayKeys(days);
+  if (!appState.selectedBrainstormDay || !days[appState.selectedBrainstormDay]) {
+    appState.selectedBrainstormDay = keys[0] || dateKey(new Date());
+  }
+  const list = days[appState.selectedBrainstormDay];
+  if (!appState.selectedBrainstormNoteId || !appState.data.notes.find(n => n.id === appState.selectedBrainstormNoteId)) {
+    appState.selectedBrainstormNoteId = list ? list[0]?.id : null;
+  }
+  const note = appState.data.notes.find(n => n.id === appState.selectedBrainstormNoteId);
+  if (note) {
+    document.getElementById('brainstorm-title').value = note.title;
+    document.getElementById('brainstorm-body').value = note.body;
+  } else {
+    document.getElementById('brainstorm-title').value = '';
+    document.getElementById('brainstorm-body').value = '';
+  }
+  renderDaysRail();
+  renderBrainstormStage();
+  updateIdeaCounter();
+}
 
-    list.appendChild(li);
+function renderDaysRail() {
+  const rail = document.getElementById('days-rail');
+  rail.innerHTML = '';
+  const days = getBrainstormDays();
+  const keys = getSortedDayKeys(days);
+  if (keys.length === 0) {
+    rail.innerHTML = `<div class="day-stack empty"><div class="stack-top">Today</div><p>No ideas yet</p></div>`;
+    return;
+  }
+  keys.forEach(day => {
+    const list = days[day];
+    const isActive = day === appState.selectedBrainstormDay;
+    const stack = document.createElement('button');
+    stack.className = 'day-stack' + (isActive ? ' active' : '');
+    const dateLabel = new Date(day + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const today = day === dateKey(new Date()) ? '<span class="today-badge">Today</span>' : '';
+    stack.innerHTML = `
+      <div class="stack-visual">
+        <div class="stack-card stack-card-3"></div>
+        <div class="stack-card stack-card-2"></div>
+        <div class="stack-card stack-card-1">
+          <span class="stack-count">${list.length}</span>
+          <span class="stack-date">${dateLabel}</span>
+          ${today}
+        </div>
+      </div>
+    `;
+    stack.addEventListener('click', () => {
+      appState.selectedBrainstormDay = day;
+      appState.selectedBrainstormNoteId = list[0]?.id;
+      renderNotes();
+    });
+    rail.appendChild(stack);
   });
+}
+
+function renderBrainstormStage() {
+  const canvas = document.getElementById('brainstorm-canvas');
+  const container = document.getElementById('brainstorm-cards');
+  const svg = document.getElementById('brainstorm-connections');
+  if (!canvas || !container || !svg) return;
+  container.innerHTML = '';
+  svg.innerHTML = '';
+
+  const days = getBrainstormDays();
+  const list = days[appState.selectedBrainstormDay] || [];
+  const totalWidth = Math.max(canvas.clientWidth, list.length * (BS_CARD_W + BS_GAP) + 140);
+  container.style.width = totalWidth + 'px';
+  svg.setAttribute('width', totalWidth);
+  svg.setAttribute('height', canvas.clientHeight);
+
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+  const grad = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+  grad.id = 'bs-conn-gradient';
+  grad.setAttribute('x1', '0%'); grad.setAttribute('y1', '0%');
+  grad.setAttribute('x2', '100%'); grad.setAttribute('y2', '0%');
+  grad.innerHTML = '<stop offset="0%" stop-color="#22d3ee" /><stop offset="100%" stop-color="#a855f7" />';
+  defs.appendChild(grad);
+  svg.appendChild(defs);
+
+  const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  svg.appendChild(group);
+
+  const canvasH = canvas.clientHeight;
+  const centerY = Math.round(canvasH * 0.45);
+  const startX = 70;
+
+  const points = list.map((n, i) => {
+    const x = startX + i * (BS_CARD_W + BS_GAP) + BS_CARD_W / 2;
+    const y = centerY + Math.sin(i * 0.7) * 28;
+    return { x, y, note: n, index: i };
+  });
+
+  if (points.length > 1) {
+    let d = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 1; i < points.length; i++) {
+      const prev = points[i - 1];
+      const curr = points[i];
+      const cpx = (prev.x + curr.x) / 2;
+      d += ` C ${cpx} ${prev.y}, ${cpx} ${curr.y}, ${curr.x} ${curr.y}`;
+    }
+    const track = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    track.setAttribute('d', d);
+    track.setAttribute('class', 'brainstorm-track');
+    group.appendChild(track);
+
+    const active = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    active.setAttribute('d', d);
+    active.setAttribute('class', 'brainstorm-line');
+    group.appendChild(active);
+  }
+
+  points.forEach((p, i) => {
+    const isFirst = i === 0;
+    const isSelected = p.note.id === appState.selectedBrainstormNoteId;
+    const card = document.createElement('div');
+    card.className = 'brainstorm-card' + (isFirst ? ' first' : '') + (isSelected ? ' active' : '');
+    card.style.left = (p.x - BS_CARD_W / 2) + 'px';
+    card.style.top = (p.y - BS_CARD_H / 2) + 'px';
+    card.style.setProperty('--rotate', `${(i - (list.length - 1) / 2) * -2}deg`);
+    card.style.transform = `rotate(${(i - (list.length - 1) / 2) * -2}deg)`;
+    card.dataset.id = p.note.id;
+    card.dataset.index = i;
+    card.innerHTML = `
+      <div class="bs-card-header">
+        <span class="bs-card-order">${i + 1}</span>
+        ${isFirst ? '<span class="bs-card-spark">Spark</span>' : ''}
+        <button class="bs-card-delete" title="Delete idea">×</button>
+      </div>
+      <h4>${escapeHtml(p.note.title) || 'Untitled'}</h4>
+      <p>${escapeHtml(p.note.body).slice(0, 90)}${p.note.body.length > 90 ? '…' : ''}</p>
+    `;
+    card.addEventListener('click', () => selectNote(p.note.id));
+    card.querySelector('.bs-card-delete').addEventListener('click', e => { e.stopPropagation(); deleteNote(p.note.id); });
+    container.appendChild(card);
+
+    const node = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    node.setAttribute('cx', p.x);
+    node.setAttribute('cy', p.y);
+    node.setAttribute('r', isFirst ? 8 : 5);
+    node.setAttribute('class', 'brainstorm-node' + (isFirst ? ' first' : ''));
+    group.appendChild(node);
+  });
+
+  requestAnimationFrame(() => {
+    const active = container.querySelector('.brainstorm-card.active');
+    if (active) active.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  });
+}
+
+function updateIdeaCounter() {
+  const days = getBrainstormDays();
+  const list = days[appState.selectedBrainstormDay] || [];
+  const idx = Math.max(0, list.findIndex(n => n.id === appState.selectedBrainstormNoteId));
+  const counter = document.getElementById('idea-counter');
+  if (counter) counter.textContent = list.length ? `${idx + 1} / ${list.length}` : '0 / 0';
 }
 
 /* Liquid effects */
@@ -1005,7 +1196,7 @@ function initLiquidEffects() {
     });
   });
 
-  document.querySelectorAll('.nav-item, .cal-day, .task-item, .note-item, .modal-option, .action-btn').forEach(el => {
+  document.querySelectorAll('.nav-item, .cal-day, .task-item, .day-stack, .modal-option, .action-btn').forEach(el => {
     el.addEventListener('mousedown', () => el.style.transform = 'scale(0.94)');
     el.addEventListener('mouseup', () => el.style.transform = '');
     el.addEventListener('mouseleave', () => el.style.transform = '');
@@ -1032,6 +1223,9 @@ async function boot() {
   appState.users = await window.hiwayAPI.getUsers();
   const saved = await window.hiwayAPI.getData();
   appState.data = Object.assign({ tasks: {}, projects: [], notes: [], postponed: [], trash: [], theme: 'dark' }, saved);
+  appState.data.notes.forEach(n => {
+    if (!n.created) n.created = n.updated || new Date().toISOString();
+  });
   initTheme();
   initAuth();
   if (appState.user) enterApp();

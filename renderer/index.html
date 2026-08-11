@@ -157,17 +157,28 @@
           <div id="projects-list" class="projects-list"></div>
         </div>
 
-        <!-- Notes -->
+        <!-- Notes / Brainstorm -->
         <div id="view-notes" class="view">
-          <div class="notes-layout">
-            <aside class="notes-sidebar glass-panel">
-              <button id="new-note-btn" class="primary-btn liquid-btn">+ New Note</button>
-              <ul id="notes-list" class="notes-list"></ul>
+          <div class="brainstorm-shell">
+            <aside class="brainstorm-rail glass-panel">
+              <button id="new-idea-btn" class="primary-btn liquid-btn">+ New Idea</button>
+              <div id="days-rail" class="days-rail"></div>
             </aside>
-            <div class="note-editor glass-card">
-              <input type="text" id="note-title" placeholder="Untitled brainstorm" class="glass-input">
-              <textarea id="note-body" placeholder="Dump ideas, links, sketches..."></textarea>
-            </div>
+            <main class="brainstorm-stage">
+              <div class="brainstorm-controls">
+                <button id="prev-idea" class="icon-btn" title="Previous idea">‹</button>
+                <span id="idea-counter" class="idea-counter glass-pill">0 / 0</span>
+                <button id="next-idea" class="icon-btn" title="Next idea">›</button>
+              </div>
+              <div id="brainstorm-canvas" class="brainstorm-canvas glass-card">
+                <svg id="brainstorm-connections" class="brainstorm-connections" xmlns="http://www.w3.org/2000/svg"></svg>
+                <div id="brainstorm-cards" class="brainstorm-cards"></div>
+              </div>
+              <div class="brainstorm-editor glass-card">
+                <input type="text" id="brainstorm-title" placeholder="Idea title" class="glass-input">
+                <textarea id="brainstorm-body" placeholder="Jot the idea, links, sketches..." class="glass-input"></textarea>
+              </div>
+            </main>
           </div>
         </div>
 

@@ -26,7 +26,8 @@
     ],
     "mac": {
       "target": "dmg",
-      "artifactName": "${productName}-${version}.${ext}"
+      "artifactName": "${productName}-${version}.${ext}",
+      "icon": "build/icon-mac.png"
     },
     "win": {
       "target": "nsis",
