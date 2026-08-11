@@ -22,6 +22,7 @@ const appState = {
 };
 
 let saveTimeout;
+let dashboardDetailType = null;
 
 function scheduleSave() {
   clearTimeout(saveTimeout);
@@ -254,7 +255,7 @@ function renderDashboard() {
   document.getElementById('kpi-week-done').textContent = weekDone;
   document.getElementById('kpi-week-total').textContent = weekTotal;
   document.getElementById('kpi-month').textContent = monthUpcoming;
-  document.getElementById('kpi-month-sub').textContent = monthUpcoming ? 'get started soon' : 'all caught up';
+  document.getElementById('kpi-month-sub').textContent = monthUpcoming ? 'Get ahead of your tasks' : 'all caught up';
 
   const rolloverEl = document.getElementById('kpi-rollover');
   const rolloverLabel = document.getElementById('kpi-rollover-label');
@@ -291,6 +292,259 @@ function renderDashboard() {
 
   renderWaypointTracker();
   updateCharts();
+}
+
+function initDashboard() {
+  document.querySelectorAll('.kpi-tile').forEach(tile => {
+    tile.addEventListener('click', () => openDashboardDetail(tile.dataset.type));
+  });
+  document.getElementById('detail-close').addEventListener('click', closeDashboardDetail);
+  const detail = document.getElementById('dashboard-detail');
+  detail.addEventListener('click', e => { if (e.target === detail) closeDashboardDetail(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && detail.classList.contains('open')) closeDashboardDetail();
+  });
+}
+
+function openDashboardDetail(type) {
+  dashboardDetailType = type;
+  renderDashboardDetail(type);
+  document.getElementById('dashboard-detail').classList.add('open');
+}
+
+function closeDashboardDetail() {
+  document.getElementById('dashboard-detail').classList.remove('open');
+  dashboardDetailType = null;
+}
+
+function refreshDashboardDetail() {
+  if (dashboardDetailType) renderDashboardDetail(dashboardDetailType);
+}
+
+function buildDetailTaskItem(task, date, idx) {
+  const li = document.createElement('li');
+  li.className = 'task-item' + (task.done ? ' done' : '');
+  li.innerHTML = `
+    <span class="task-text">${escapeHtml(task.text)}</span>
+    <div class="task-actions">
+      <button class="action-btn done-btn" title="Complete">✓</button>
+      <button class="action-btn postpone-btn" title="Postpone">↻</button>
+      <button class="action-btn delete-btn" title="Delete">×</button>
+    </div>
+  `;
+  li.querySelector('.done-btn').addEventListener('click', () => completeTaskForDate(date, idx));
+  li.querySelector('.postpone-btn').addEventListener('click', () => openPostponeModalForDate(date, idx));
+  li.querySelector('.delete-btn').addEventListener('click', () => openDeleteModalForDate(date, idx));
+  return li;
+}
+
+function completeTaskForDate(date, idx) {
+  appState.selectedDate = date;
+  completeTask(idx);
+  refreshDashboardDetail();
+}
+
+function openPostponeModalForDate(date, idx) {
+  appState.selectedDate = date;
+  openPostponeModal(idx);
+}
+
+function openDeleteModalForDate(date, idx) {
+  appState.selectedDate = date;
+  openDeleteModal(idx);
+}
+
+function addDetailTask(date, text) {
+  if (!text) return;
+  if (!appState.data.tasks[date]) appState.data.tasks[date] = [];
+  appState.data.tasks[date].push({ text, done: false, id: uuid() });
+  scheduleSave();
+  renderCalendar();
+  renderDashboard();
+  refreshDashboardDetail();
+}
+
+function renderDashboardDetail(type) {
+  const titleEl = document.getElementById('detail-title');
+  const valueEl = document.getElementById('detail-value');
+  const subtitleEl = document.getElementById('detail-subtitle');
+  const bodyEl = document.getElementById('detail-body');
+  const addEl = document.getElementById('detail-add');
+  bodyEl.innerHTML = '';
+  addEl.innerHTML = '';
+  valueEl.className = 'detail-value';
+  subtitleEl.textContent = '';
+
+  const today = dateKey(new Date());
+
+  if (type === 'week') {
+    const start = getWeekStart(new Date());
+    const weekDone = countTasksDone(start);
+    const weekTotal = countTasksTotal(start);
+    titleEl.textContent = 'Completed this Week';
+    valueEl.textContent = `${weekDone}/${weekTotal}`;
+    subtitleEl.textContent = weekTotal ? `${weekTotal - weekDone} left this week` : 'Nothing scheduled';
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    let hasAny = false;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      const key = dateKey(d);
+      const tasks = appState.data.tasks[key] || [];
+      if (!tasks.length) continue;
+      hasAny = true;
+      const group = document.createElement('div');
+      group.className = 'detail-date-group';
+      group.textContent = d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) + (key === today ? ' • Today' : '');
+      bodyEl.appendChild(group);
+      tasks.forEach((task, idx) => bodyEl.appendChild(buildDetailTaskItem(task, key, idx)));
+    }
+    if (!hasAny) bodyEl.innerHTML = '<div class="detail-empty">No tasks scheduled this week. Add one below.</div>';
+
+    const min = dateKey(start);
+    const max = dateKey(end);
+    addEl.innerHTML = `
+      <form class="detail-add-form">
+        <input type="text" placeholder="Add a task for this week..." required>
+        <input type="date" value="${today}" min="${min}" max="${max}" required>
+        <button type="submit">Add</button>
+      </form>
+    `;
+    const form = addEl.querySelector('form');
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const text = form.querySelector('input[type="text"]').value.trim();
+      const date = form.querySelector('input[type="date"]').value;
+      if (text && date) { addDetailTask(date, text); form.reset(); form.querySelector('input[type="date"]').value = today; }
+    });
+  }
+
+  if (type === 'month') {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const upcoming = [];
+    Object.entries(appState.data.tasks).forEach(([date, tasks]) => {
+      if (date < today) return;
+      const d = new Date(date);
+      if (d.getFullYear() !== year || d.getMonth() !== month) return;
+      tasks.forEach((task, idx) => { if (!task.done) upcoming.push({ date, task, idx }); });
+    });
+    upcoming.sort((a, b) => a.date.localeCompare(b.date));
+    titleEl.textContent = 'Upcoming This Month';
+    valueEl.textContent = upcoming.length;
+    subtitleEl.textContent = upcoming.length ? 'Get ahead of your tasks' : 'all caught up';
+    if (!upcoming.length) {
+      bodyEl.innerHTML = '<div class="detail-empty">No upcoming tasks this month. You are all caught up.</div>';
+    } else {
+      let lastDate = null;
+      upcoming.forEach(({ date, task, idx }) => {
+        if (date !== lastDate) {
+          const group = document.createElement('div');
+          group.className = 'detail-date-group';
+          const d = new Date(date);
+          group.textContent = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + (date === today ? ' • Today' : '');
+          bodyEl.appendChild(group);
+          lastDate = date;
+        }
+        bodyEl.appendChild(buildDetailTaskItem(task, date, idx));
+      });
+    }
+    const min = dateKey(firstDay);
+    const max = dateKey(lastDay);
+    addEl.innerHTML = `
+      <form class="detail-add-form">
+        <input type="text" placeholder="Add a task for this month..." required>
+        <input type="date" value="${today}" min="${min}" max="${max}" required>
+        <button type="submit">Add</button>
+      </form>
+    `;
+    const form = addEl.querySelector('form');
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const text = form.querySelector('input[type="text"]').value.trim();
+      const date = form.querySelector('input[type="date"]').value;
+      if (text && date) { addDetailTask(date, text); form.reset(); form.querySelector('input[type="date"]').value = today; }
+    });
+  }
+
+  if (type === 'rollover') {
+    const { overdue, rate } = getRolloverStats();
+    titleEl.textContent = 'Rollover Rate';
+    valueEl.textContent = rate + '%';
+    valueEl.className = 'detail-value' + (overdue === 0 ? ' good' : rate <= 20 ? ' warn' : ' bad');
+    subtitleEl.textContent = overdue === 0 ? 'You are on track' : `${overdue} task${overdue === 1 ? '' : 's'} rolled over`;
+    const overdueTasks = [];
+    Object.entries(appState.data.tasks).forEach(([date, tasks]) => {
+      if (date >= today) return;
+      tasks.forEach((task, idx) => { if (!task.done) overdueTasks.push({ date, task, idx }); });
+    });
+    overdueTasks.sort((a, b) => a.date.localeCompare(b.date));
+    if (!overdueTasks.length) {
+      bodyEl.innerHTML = '<div class="detail-empty">No overdue tasks. You are on track.</div>';
+    } else {
+      let lastDate = null;
+      overdueTasks.forEach(({ date, task, idx }) => {
+        if (date !== lastDate) {
+          const group = document.createElement('div');
+          group.className = 'detail-date-group';
+          const d = new Date(date);
+          group.textContent = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+          bodyEl.appendChild(group);
+          lastDate = date;
+        }
+        bodyEl.appendChild(buildDetailTaskItem(task, date, idx));
+      });
+    }
+    addEl.innerHTML = `
+      <form class="detail-add-form">
+        <input type="text" placeholder="Add a new task..." required>
+        <input type="date" value="${today}" required>
+        <button type="submit">Add Today</button>
+      </form>
+    `;
+    const form = addEl.querySelector('form');
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const text = form.querySelector('input[type="text"]').value.trim();
+      const date = form.querySelector('input[type="date"]').value;
+      if (text && date) { addDetailTask(date, text); form.reset(); form.querySelector('input[type="date"]').value = today; }
+    });
+  }
+
+  if (type === 'projects') {
+    titleEl.textContent = 'Projects';
+    valueEl.textContent = appState.data.projects.length;
+    const activeProjects = appState.data.projects.filter(p => !p.steps.length || !p.steps.every(s => s.done)).length;
+    const allDone = appState.data.projects.length && activeProjects === 0;
+    subtitleEl.textContent = appState.data.projects.length ? (allDone ? 'all done' : `${activeProjects} active`) : 'start something big';
+    if (!appState.data.projects.length) {
+      bodyEl.innerHTML = '<div class="detail-empty">No projects yet. Create one below.</div>';
+    } else {
+      appState.data.projects.forEach(project => bodyEl.appendChild(buildProjectCard(project, 'detail-project glass-card')));
+    }
+    addEl.innerHTML = `
+      <form class="detail-add-form">
+        <input type="text" placeholder="New project or big idea..." required>
+        <button type="submit">Create Project</button>
+      </form>
+    `;
+    const form = addEl.querySelector('form');
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const input = form.querySelector('input[type="text"]');
+      const title = input.value.trim();
+      if (!title) return;
+      appState.data.projects.push({ id: uuid(), title, steps: [], created: new Date().toISOString() });
+      scheduleSave();
+      renderDashboard();
+      refreshDashboardDetail();
+      input.value = '';
+    });
+  }
 }
 
 function getWeekDayStats() {
@@ -661,6 +915,7 @@ function completeTask(idx) {
   scheduleSave();
   renderCalendar();
   renderDashboard();
+  refreshDashboardDetail();
 }
 
 function removeTaskAt(idx) {
@@ -712,6 +967,7 @@ function openDeleteModal(idx) {
       renderCalendar();
       renderDashboard();
       if (appState.currentView === 'deferred') renderDeferred();
+      refreshDashboardDetail();
     }
   );
 }
@@ -760,6 +1016,7 @@ function openPostponeModal(idx) {
     renderCalendar();
     renderDashboard();
     if (appState.currentView === 'deferred') renderDeferred();
+    refreshDashboardDetail();
   };
 
   document.getElementById('opt-tomorrow').addEventListener('click', () => closeAndMove(tomorrow, 'date'));
@@ -875,6 +1132,7 @@ function addProject() {
   scheduleSave();
   renderProjects();
   renderDashboard();
+  refreshDashboardDetail();
 }
 
 function deleteProject(pid) {
@@ -882,6 +1140,7 @@ function deleteProject(pid) {
   scheduleSave();
   renderProjects();
   renderDashboard();
+  refreshDashboardDetail();
 }
 
 function addStep(pid, input) {
@@ -894,13 +1153,14 @@ function addStep(pid, input) {
   scheduleSave();
   renderProjects();
   renderDashboard();
+  refreshDashboardDetail();
 }
 
 function toggleStep(pid, sid) {
   const project = appState.data.projects.find(p => p.id === pid);
   if (!project) return;
   const step = project.steps.find(s => s.id === sid);
-  if (step) { step.done = !step.done; scheduleSave(); renderProjects(); renderDashboard(); }
+  if (step) { step.done = !step.done; scheduleSave(); renderProjects(); renderDashboard(); refreshDashboardDetail(); }
 }
 
 function deleteStep(pid, sid) {
@@ -910,50 +1170,53 @@ function deleteStep(pid, sid) {
   scheduleSave();
   renderProjects();
   renderDashboard();
+  refreshDashboardDetail();
+}
+
+function buildProjectCard(project, cardClass = 'project-card glass-card tilt-card') {
+  const total = project.steps.length;
+  const done = project.steps.filter(s => s.done).length;
+  const pct = total ? Math.round((done / total) * 100) : 0;
+
+  const card = document.createElement('div');
+  card.className = cardClass;
+  card.innerHTML = `
+    <div class="project-header">
+      <div>
+        <div class="project-title">${escapeHtml(project.title)}</div>
+        <div class="project-meta"><span>${done}/${total} steps</span><span>${pct}%</span></div>
+      </div>
+      <button class="project-delete" title="Delete project">×</button>
+    </div>
+    <div class="project-progress"><div class="project-progress-bar" style="width:${pct}%"></div></div>
+    <ul class="project-steps"></ul>
+    <div class="add-step-row">
+      <input type="text" placeholder="Add a step...">
+      <button>Add</button>
+    </div>
+  `;
+
+  const stepsUl = card.querySelector('.project-steps');
+  project.steps.forEach(step => {
+    const li = document.createElement('li');
+    li.className = 'project-step' + (step.done ? ' done' : '');
+    li.innerHTML = `<div class="task-check">${step.done ? '✓' : ''}</div><span class="step-text">${escapeHtml(step.text)}</span>`;
+    li.addEventListener('click', () => toggleStep(project.id, step.id));
+    stepsUl.appendChild(li);
+  });
+
+  const stepInput = card.querySelector('.add-step-row input');
+  card.querySelector('.add-step-row button').addEventListener('click', () => addStep(project.id, stepInput));
+  stepInput.addEventListener('keydown', e => { if (e.key === 'Enter') addStep(project.id, stepInput); });
+  card.querySelector('.project-delete').addEventListener('click', () => deleteProject(project.id));
+
+  return card;
 }
 
 function renderProjects() {
   const list = document.getElementById('projects-list');
   list.innerHTML = '';
-  appState.data.projects.forEach(project => {
-    const total = project.steps.length;
-    const done = project.steps.filter(s => s.done).length;
-    const pct = total ? Math.round((done / total) * 100) : 0;
-
-    const card = document.createElement('div');
-    card.className = 'project-card glass-card tilt-card';
-    card.innerHTML = `
-      <div class="project-header">
-        <div>
-          <div class="project-title">${escapeHtml(project.title)}</div>
-          <div class="project-meta"><span>${done}/${total} steps</span><span>${pct}%</span></div>
-        </div>
-        <button class="project-delete" title="Delete project">×</button>
-      </div>
-      <div class="project-progress"><div class="project-progress-bar" style="width:${pct}%"></div></div>
-      <ul class="project-steps"></ul>
-      <div class="add-step-row">
-        <input type="text" placeholder="Add a step...">
-        <button>Add</button>
-      </div>
-    `;
-
-    const stepsUl = card.querySelector('.project-steps');
-    project.steps.forEach(step => {
-      const li = document.createElement('li');
-      li.className = 'project-step' + (step.done ? ' done' : '');
-      li.innerHTML = `<div class="task-check">${step.done ? '✓' : ''}</div><span class="step-text">${escapeHtml(step.text)}</span>`;
-      li.addEventListener('click', () => toggleStep(project.id, step.id));
-      stepsUl.appendChild(li);
-    });
-
-    const stepInput = card.querySelector('.add-step-row input');
-    card.querySelector('.add-step-row button').addEventListener('click', () => addStep(project.id, stepInput));
-    stepInput.addEventListener('keydown', e => { if (e.key === 'Enter') addStep(project.id, stepInput); });
-    card.querySelector('.project-delete').addEventListener('click', () => deleteProject(project.id));
-
-    list.appendChild(card);
-  });
+  appState.data.projects.forEach(project => list.appendChild(buildProjectCard(project)));
 }
 
 /* Notes / Brainstorm */
@@ -1272,6 +1535,7 @@ function initMain() {
   initProjects();
   initNotes();
   initDeferred();
+  initDashboard();
   switchView('dashboard');
   initLiquidEffects();
 }
