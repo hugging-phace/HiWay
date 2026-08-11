@@ -269,6 +269,35 @@ html[data-theme="light"] .segmented-control button:hover {
   flex-direction: row;
   padding: 18px;
   gap: 18px;
+  position: relative;
+}
+
+.platform-darwin #main-screen {
+  padding-top: 58px;
+}
+
+.titlebar {
+  display: none;
+}
+
+.platform-darwin .titlebar {
+  display: flex;
+  position: absolute;
+  top: 0;
+  left: 18px;
+  right: 18px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  -webkit-app-region: drag;
+  app-region: drag;
+  color: var(--text);
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  opacity: 0.8;
 }
 
 .sidebar {
@@ -491,6 +520,50 @@ html[data-theme="light"] .segmented-control button:hover {
   font-size: 2.8rem;
   font-weight: 800;
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.kpi-sub {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.kpi-week .kpi-value {
+  background: linear-gradient(135deg, #22c55e, #34d399);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.kpi-month .kpi-value {
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.kpi-rollover .kpi-value.good {
+  background: linear-gradient(135deg, #22c55e, #34d399);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.kpi-rollover .kpi-value.warn {
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.kpi-rollover .kpi-value.bad {
+  background: linear-gradient(135deg, #ef4444, #f87171);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.kpi-projects .kpi-value {
+  background: linear-gradient(135deg, #8b5cf6, #ec4899);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }

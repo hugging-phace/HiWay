@@ -23,8 +23,7 @@ function writeJSON(file, data) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
 }
 
-const iconFile = process.platform === 'darwin' ? 'build/icon-mac.png' : 'build/icon.png';
-const iconPath = path.join(__dirname, iconFile);
+const iconPath = path.join(__dirname, 'build/icon.png');
 
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
@@ -33,12 +32,13 @@ function createWindow() {
     height: Math.min(900, height - 100),
     minWidth: 1000,
     minHeight: 700,
-    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    titleBarStyle: process.platform === 'darwin' ? 'hidden' : 'default',
+    trafficLightPosition: process.platform === 'darwin' ? { x: 16, y: 16 } : undefined,
     transparent: false,
     frame: true,
     autoHideMenuBar: true,
     backgroundColor: '#0b0c15',
-    icon: iconPath,
+    icon: process.platform === 'darwin' ? undefined : iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -52,7 +52,6 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
-  if (app.dock) app.dock.setIcon(iconPath);
 });
 
 app.on('window-all-closed', () => {

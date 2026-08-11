@@ -52,6 +52,13 @@ function initTheme() {
   document.documentElement.setAttribute('data-theme', savedTheme);
 }
 
+function initPlatform() {
+  const platform = (window.hiwayAPI && window.hiwayAPI.platform) || '';
+  if (platform) {
+    document.documentElement.classList.add('platform-' + platform);
+  }
+}
+
 function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme');
   const next = current === 'dark' ? 'light' : 'dark';
@@ -205,19 +212,69 @@ function getRecentWins(limit = 5) {
   return wins.slice(0, limit);
 }
 
+function getMonthUpcomingCount() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const today = dateKey(now);
+  let count = 0;
+  Object.entries(appState.data.tasks).forEach(([date, tasks]) => {
+    if (date < today) return;
+    const d = new Date(date);
+    if (d.getFullYear() !== year || d.getMonth() !== month) return;
+    count += tasks.filter(t => !t.done).length;
+  });
+  return count;
+}
+
+function getRolloverStats() {
+  const today = dateKey(new Date());
+  let overdue = 0;
+  let total = 0;
+  Object.entries(appState.data.tasks).forEach(([date, tasks]) => {
+    total += tasks.length;
+    if (date < today) overdue += tasks.filter(t => !t.done).length;
+  });
+  return { overdue, rate: total ? Math.round((overdue / total) * 100) : 0 };
+}
+
+function getOpenProjectSteps() {
+  return appState.data.projects.reduce((sum, p) => sum + p.steps.filter(s => !s.done).length, 0);
+}
+
 function renderDashboard() {
-  const allTasks = getAllTasks();
-  const done = allTasks.filter(t => t.done).length;
-  const total = allTasks.length;
   const thisWeekStart = getWeekStart(new Date());
   const weekDone = countTasksDone(thisWeekStart);
+  const weekTotal = countTasksTotal(thisWeekStart);
+  const monthUpcoming = getMonthUpcomingCount();
+  const { overdue, rate: rolloverRate } = getRolloverStats();
   const projects = appState.data.projects.length;
-  const rate = total ? Math.round((done / total) * 100) : 0;
+  const openSteps = getOpenProjectSteps();
 
-  document.getElementById('kpi-done').textContent = done;
-  document.getElementById('kpi-week').textContent = weekDone;
-  document.getElementById('kpi-projects').textContent = projects;
-  document.getElementById('kpi-rate').textContent = rate + '%';
+  document.getElementById('kpi-week-done').textContent = weekDone;
+  document.getElementById('kpi-week-total').textContent = weekTotal;
+  document.getElementById('kpi-month').textContent = monthUpcoming;
+  document.getElementById('kpi-month-sub').textContent = monthUpcoming ? 'get started soon' : 'all caught up';
+
+  const rolloverEl = document.getElementById('kpi-rollover');
+  const rolloverLabel = document.getElementById('kpi-rollover-label');
+  rolloverEl.textContent = rolloverRate + '%';
+  rolloverEl.classList.remove('good', 'warn', 'bad');
+  if (overdue === 0) {
+    rolloverEl.classList.add('good');
+    rolloverLabel.textContent = 'on track';
+  } else if (rolloverRate <= 20) {
+    rolloverEl.classList.add('warn');
+    rolloverLabel.textContent = 'needs attention';
+  } else {
+    rolloverEl.classList.add('bad');
+    rolloverLabel.textContent = 'falling behind';
+  }
+
+  const projectsEl = document.getElementById('kpi-projects');
+  const projectsSub = document.getElementById('kpi-projects-sub');
+  projectsEl.textContent = projects;
+  projectsSub.textContent = openSteps ? `${openSteps} steps remaining` : 'all done';
 
   const winsList = document.getElementById('recent-wins');
   winsList.innerHTML = '';
@@ -1227,6 +1284,7 @@ async function boot() {
     if (!n.created) n.created = n.updated || new Date().toISOString();
   });
   initTheme();
+  initPlatform();
   initAuth();
   if (appState.user) enterApp();
 }
