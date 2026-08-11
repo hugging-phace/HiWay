@@ -1,44 +1,66 @@
 {
-  "features": ["refractivity", "specular-location"],
+  "fill": {
+    "solid": "srgb:0.93333,0.94902,0.96863,1.00000"
+  },
   "fill-specializations": [
     {
-      "value": {
-        "linear-gradient": [
-          "extended-srgb:0.93333,0.94902,0.96863,1.00000",
-          "extended-srgb:0.85882,0.89412,0.94118,1.00000"
-        ]
-      }
+      "value": "system-light"
     },
     {
       "appearance": "dark",
-      "value": {
-        "linear-gradient": [
-          "extended-srgb:0.04314,0.04706,0.08235,1.00000",
-          "extended-srgb:0.08235,0.09412,0.15294,1.00000"
-        ]
-      }
+      "value": "system-dark"
+    },
+    {
+      "appearance": "tinted",
+      "value": "automatic"
     }
   ],
   "groups": [
     {
-      "name": "Waypoint",
+      "blur-material": null,
       "layers": [
         {
-          "name": "Glyph",
-          "image-name": "waypoint.png",
-          "glass": true,
           "fill-specializations": [
-            { "value": { "solid": "extended-srgb:1.00000,1.00000,1.00000,1.00000" } },
-            { "appearance": "dark", "value": { "solid": "extended-srgb:0.96078,0.96078,0.96078,1.00000" } },
-            { "appearance": "tinted", "value": "automatic" }
-          ]
+            {
+              "value": {
+                "solid": "srgb:1.00000,1.00000,1.00000,1.00000"
+              }
+            },
+            {
+              "appearance": "dark",
+              "value": {
+                "solid": "srgb:0.96078,0.96078,0.96078,1.00000"
+              }
+            },
+            {
+              "appearance": "tinted",
+              "value": "automatic"
+            }
+          ],
+          "glass": true,
+          "hidden": false,
+          "image-name": "waypoint.png",
+          "name": "waypoint",
+          "position": {
+            "scale": 1.0,
+            "translation-in-points": [0, 0]
+          }
         }
       ],
-      "shadow": { "kind": "neutral", "opacity": 0.35 },
+      "lighting": "individual",
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.35
+      },
       "specular": true,
-      "translucency": { "enabled": true, "value": 0.15 },
-      "lighting": "individual"
+      "translucency": {
+        "enabled": true,
+        "value": 0.15
+      }
     }
   ],
-  "supported-platforms": { "squares": ["macOS"] }
+  "supported-platforms": {
+    "circles": ["watchOS"],
+    "squares": "shared"
+  }
 }
