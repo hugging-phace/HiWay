@@ -2826,16 +2826,7 @@ function initTour() {
   const startBtn = document.getElementById('tour-btn');
   if (!overlay || !tooltip || !startBtn) return;
 
-  tourSteps = [
-    { target: '.topbar', message: 'This is the top bar. The question mark starts this tour any time.', position: 'bottom' },
-    { target: '.kpi-tile[data-type="today"]', message: 'Today shows tasks scheduled for today. Click the tile to expand and add tasks quickly.', position: 'right' },
-    { target: '.kpi-tile[data-type="upcoming"]', message: 'Upcoming shows future tasks so you can get ahead.', position: 'right' },
-    { target: '.kpi-tile[data-type="rollover"]', message: 'Rollover rate tracks overdue tasks. Keep this low to stay on track.', position: 'right' },
-    { target: '.kpi-tile[data-type="projects"]', message: 'Projects shows your active projects. Click to see progress and add steps.', position: 'right' },
-    { target: '.sidebar nav', message: 'Switch between Dashboard, Calendar, Projects, Brainstorm, Reports, Spreadsheets, and Deferred.', position: 'right' },
-    { target: '#calendar-card', message: 'Calendar lets you browse dates, search tasks, and share a day as text.', position: 'bottom' },
-    { target: null, message: 'Notice the colored dots next to tasks. Purple means a project; green means a spreadsheet. Hover a dot to see the label, then click to open it.', position: 'center' }
-  ];
+  tourSteps = getTourSteps(appState.currentView || 'dashboard');
 
   startBtn.addEventListener('click', () => { startTour(); });
   nextBtn?.addEventListener('click', () => { nextTourStep(); });
@@ -2852,12 +2843,98 @@ function initTour() {
   });
 }
 
+function getTourSteps(view) {
+  const dotsStep = { target: null, message: 'Notice the colored dots next to tasks. Purple means a project; green means a spreadsheet. Hover a dot to see the label, then click to open it.', position: 'center' };
+  const topBarStep = { target: '.topbar', message: 'This is the top bar. The question mark starts this tour any time from any screen.', position: 'bottom' };
+  const navStep = { target: '.sidebar nav', message: 'Switch between Dashboard, Calendar, Projects, Brainstorm, Reports, Spreadsheets, and Deferred.', position: 'right' };
+
+  if (view === 'calendar') {
+    return [
+      topBarStep,
+      { target: '#cal-mode', message: 'Toggle Month, Week, or Day views to browse your schedule.', position: 'bottom' },
+      { target: '#cal-search', message: 'Search your tasks across all dates. Type a keyword and matching dates will light up.', position: 'bottom' },
+      { target: '#share-day-btn', message: 'Tap Share day to copy the selected day\'s tasks as a quick message for your manager or team.', position: 'bottom' },
+      { target: '#calendar-body', message: 'Pick any date to see or add tasks for that day in the side panel.', position: 'bottom' },
+      { target: '.task-panel', message: 'This panel shows the tasks for the selected date. Add new ones right here.', position: 'left' },
+      navStep,
+      dotsStep
+    ];
+  }
+
+  if (view === 'projects') {
+    return [
+      topBarStep,
+      { target: '.projects-header', message: 'Start a new project or big idea here.', position: 'bottom' },
+      { target: '#projects-mode', message: 'Switch between Active and Completed projects.', position: 'bottom' },
+      { target: '.project-card', message: 'Each card shows progress, steps, and linked spreadsheets. Complete or delete a project with the top-right buttons.', position: 'right' },
+      navStep,
+      { target: null, message: 'Project steps are also dated tasks, so they show up on the Dashboard and Calendar. A purple dot means a step belongs to a project.', position: 'center' }
+    ];
+  }
+
+  if (view === 'spreadsheets') {
+    return [
+      topBarStep,
+      { target: '#spreadsheets-form', message: 'Create a new spreadsheet here. You can also turn it into a dated task so it stays on your radar.', position: 'bottom' },
+      { target: '.spreadsheet-tile', message: 'A tile opens the spreadsheet. If it is linked to a project, the purple Project badge opens the project.', position: 'bottom' },
+      navStep,
+      { target: null, message: 'Spreadsheet tasks show a green dot. Click the dot to open the sheet from any task list.', position: 'center' }
+    ];
+  }
+
+  if (view === 'reports') {
+    return [
+      topBarStep,
+      { target: '.reports-header', message: 'Build a simple HR-style report of completed work over a date range.', position: 'bottom' },
+      { target: '.reports-controls', message: 'Pick a From/To date and choose whether to include completed tasks, completed projects, or both.', position: 'bottom' },
+      { target: '#download-report', message: 'Download an Excel file you can bring to a review meeting.', position: 'top' },
+      navStep,
+      { target: null, message: 'The report includes task notes, original dates, scheduled dates, and completed dates.', position: 'center' }
+    ];
+  }
+
+  if (view === 'deferred') {
+    return [
+      topBarStep,
+      { target: '#deferred-mode', message: 'Switch between Postponed tasks and the Trash Bin.', position: 'bottom' },
+      { target: '#deferred-list', message: 'Postponed tasks can be restored. Trashed tasks can be permanently deleted.', position: 'bottom' },
+      { target: '#clear-deferred-btn', message: 'Use Clear All to empty the current list quickly.', position: 'bottom' },
+      navStep,
+      dotsStep
+    ];
+  }
+
+  if (view === 'notes') {
+    return [
+      topBarStep,
+      { target: '#new-idea-btn', message: 'Start a new brainstorm idea here.', position: 'right' },
+      { target: '#days-rail', message: 'Your ideas are grouped by the day you created them.', position: 'right' },
+      { target: '.brainstorm-canvas', message: 'Ideas for the same day are shown as connected cards.', position: 'left' },
+      { target: '.brainstorm-editor', message: 'Edit the selected idea\'s title and body in this panel.', position: 'top' },
+      navStep,
+      dotsStep
+    ];
+  }
+
+  return [
+    topBarStep,
+    { target: '.kpi-tile[data-type="today"]', message: 'Today shows tasks scheduled for today. Click the tile to expand and add tasks quickly.', position: 'right' },
+    { target: '.kpi-tile[data-type="upcoming"]', message: 'Upcoming shows future tasks so you can get ahead.', position: 'right' },
+    { target: '.kpi-tile[data-type="rollover"]', message: 'Rollover rate tracks overdue tasks. Keep this low to stay on track.', position: 'right' },
+    { target: '.kpi-tile[data-type="projects"]', message: 'Projects shows your active projects. Click to see progress and add steps.', position: 'right' },
+    { target: '.week-waypoints', message: 'This Week shows your daily load. Each point opens that specific day.', position: 'bottom' },
+    navStep,
+    dotsStep
+  ];
+}
+
 function startTour() {
   const overlay = document.getElementById('tour-overlay');
   const tooltip = document.getElementById('tour-tooltip');
   overlay.style.display = 'block';
   tooltip.style.display = 'block';
   tourIndex = 0;
+  tourSteps = getTourSteps(appState.currentView || 'dashboard');
   showTourStep(0);
   requestAnimationFrame(() => { overlay.classList.add('active'); tooltip.classList.add('active'); });
 }
