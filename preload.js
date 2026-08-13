@@ -1,4 +1,5 @@
 const { contextBridge, ipcRenderer } = require('electron');
+const { createXlsx } = require('@litejs/xlsx');
 
 contextBridge.exposeInMainWorld('hiwayAPI', {
   platform: process.platform,
@@ -7,3 +8,5 @@ contextBridge.exposeInMainWorld('hiwayAPI', {
   getData: () => ipcRenderer.invoke('api:getData'),
   saveData: (data) => ipcRenderer.invoke('api:saveData', data)
 });
+
+contextBridge.exposeInMainWorld('createXlsx', (workbook) => createXlsx(workbook));

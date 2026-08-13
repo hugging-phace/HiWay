@@ -9,6 +9,7 @@ const appState = {
     notes: [],
     postponed: [],
     trash: [],
+    spreadsheets: [],
     theme: 'light'
   },
   currentView: 'dashboard',
@@ -20,7 +21,8 @@ const appState = {
   charts: {},
   deferredMode: 'postponed',
   projectMode: 'active',
-  searchQuery: ''
+  searchQuery: '',
+  activeSpreadsheet: null
 };
 
 let saveTimeout;
@@ -70,7 +72,7 @@ function formatShortDate(date) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function createTask(text, date, notes = '', plantedDate = null, id = null, projectId = null, done = false, completedDate = null) {
+function createTask(text, date, notes = '', plantedDate = null, id = null, projectId = null, done = false, completedDate = null, spreadsheetId = null) {
   return {
     text,
     done: !!done,
@@ -78,7 +80,8 @@ function createTask(text, date, notes = '', plantedDate = null, id = null, proje
     plantedDate: plantedDate || dateKey(date),
     completedDate: completedDate || null,
     id: id || uuid(),
-    projectId: projectId || null
+    projectId: projectId || null,
+    spreadsheetId: spreadsheetId || null
   };
 }
 
@@ -204,6 +207,7 @@ function switchView(view) {
   if (view === 'notes') renderNotes();
   if (view === 'deferred') renderDeferred();
   if (view === 'reports') renderReports();
+  if (view === 'spreadsheets') renderSpreadsheets();
 }
 
 /* Dashboard */
@@ -369,6 +373,7 @@ function renderDashboard() {
 
 function initDashboard() {
   document.querySelectorAll('.kpi-tile').forEach(tile => {
+    if (tile.dataset.type === 'week') return;
     tile.addEventListener('click', () => openDashboardDetail(tile.dataset.type));
     const addBtn = tile.querySelector('.kpi-add');
     if (addBtn) {
@@ -404,18 +409,19 @@ function refreshDashboardDetail() {
 }
 
 function buildTaskActions(task, date, idx) {
+  const notesLabel = task.notes ? 'Edit a note' : 'Add a note';
   if (task.done) {
     return `
       <div class="task-actions completed-actions">
         <span class="completed-badge">Completed</span>
-        <button class="notes-btn ${task.notes ? 'has-notes' : ''}" title="Notes">📝</button>
+        <button class="notes-btn ${task.notes ? 'has-notes' : ''}" title="Notes">${notesLabel}</button>
         <button class="action-btn undo-btn" title="Undo">↩</button>
       </div>
     `;
   }
   return `
     <div class="task-actions">
-      <button class="notes-btn ${task.notes ? 'has-notes' : ''}" title="Notes">📝</button>
+      <button class="notes-btn ${task.notes ? 'has-notes' : ''}" title="Notes">${notesLabel}</button>
       <button class="action-btn done-btn" title="Complete">✓</button>
       <button class="action-btn postpone-btn" title="Postpone">↻</button>
       <button class="action-btn delete-btn" title="Delete">×</button>
@@ -440,14 +446,16 @@ function bindTaskActionButtons(li, task, date, idx) {
 }
 
 function taskProjectBadge(task) {
-  return task.projectId ? '<span class="task-project-badge" title="Project step">◬</span>' : '';
+  return task.projectId ? '<span class="task-project-badge" title="Project step">Project</span>' : '';
 }
 
 function buildDetailTaskItem(task, date, idx) {
   const li = document.createElement('li');
-  li.className = 'task-item' + (task.done ? ' done' : '');
+  li.className = 'task-item' + (task.done ? ' done' : '') + (task.projectId ? ' project-task' : '');
+  const rolled = !task.done && task.plantedDate && task.plantedDate !== date;
+  const rolledMeta = rolled ? `<span class="task-rolled-meta">Planted ${formatShortDate(task.plantedDate)} · now ${formatShortDate(date)}</span>` : '';
   li.innerHTML = `
-    <span class="task-text">${taskProjectBadge(task)}${escapeHtml(task.text)}</span>
+    <span class="task-text">${taskProjectBadge(task)}${escapeHtml(task.text)}${rolledMeta}</span>
     ${buildTaskActions(task, date, idx)}
   `;
   bindTaskActionButtons(li, task, date, idx);
@@ -531,7 +539,7 @@ function renderDashboardDetail(type, date = null) {
     const tasks = appState.data.tasks[today] || [];
     const done = tasks.filter(t => t.done).length;
     const total = tasks.length;
-    titleEl.textContent = 'Today';
+    titleEl.textContent = "Today's Task";
     valueEl.textContent = `${done}/${total}`;
     subtitleEl.textContent = total ? `${total - done} left today` : 'Nothing scheduled';
     if (!tasks.length) {
@@ -603,7 +611,7 @@ function renderDashboardDetail(type, date = null) {
       tasks.forEach((task, idx) => { if (!task.done) upcoming.push({ date, task, idx }); });
     });
     upcoming.sort((a, b) => a.date.localeCompare(b.date));
-    titleEl.textContent = 'Upcoming';
+    titleEl.textContent = 'Upcoming Task';
     valueEl.textContent = upcoming.length;
     subtitleEl.textContent = upcoming.length ? 'Get ahead of your tasks' : 'all caught up';
     if (!upcoming.length) {
@@ -643,7 +651,7 @@ function renderDashboardDetail(type, date = null) {
     const { overdue, rate } = getRolloverStats();
     titleEl.textContent = 'Rollover Rate';
     valueEl.textContent = rate + '%';
-    valueEl.className = 'detail-value' + (overdue === 0 ? ' good' : rate <= 20 ? ' warn' : ' bad');
+    valueEl.className = 'detail-value' + (overdue === 0 ? ' good' : rate <= 25 ? ' warn' : ' bad');
     subtitleEl.textContent = overdue === 0 ? 'You are on track' : `${overdue} task${overdue === 1 ? '' : 's'} rolled over`;
     const rolledTasks = [];
     Object.entries(appState.data.tasks).forEach(([date, tasks]) => {
@@ -653,12 +661,16 @@ function renderDashboardDetail(type, date = null) {
     if (!rolledTasks.length) {
       bodyEl.innerHTML = '<div class="detail-empty">No rolled-over tasks. You are on track.</div>';
     } else {
+      const encourage = document.createElement('div');
+      encourage.className = 'detail-encourage';
+      encourage.textContent = `You have ${overdue} overdue rolled task${overdue === 1 ? '' : 's'}. Target these first to improve your rollover rating.`;
+      bodyEl.appendChild(encourage);
       let lastDate = null;
       rolledTasks.forEach(({ date, task, idx }) => {
         if (date !== lastDate) {
           const group = document.createElement('div');
           group.className = 'detail-date-group';
-          const d = new Date(date);
+          const d = new Date(date + 'T00:00:00');
           group.textContent = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
           bodyEl.appendChild(group);
           lastDate = date;
@@ -666,32 +678,38 @@ function renderDashboardDetail(type, date = null) {
         bodyEl.appendChild(buildDetailTaskItem(task, date, idx));
       });
     }
-    addEl.innerHTML = `
-      <form class="detail-add-form">
-        <input type="text" placeholder="Add a new task..." required>
-        <input type="date" value="${today}" required>
-        <button type="submit">Add Today</button>
-      </form>
-    `;
-    const form = addEl.querySelector('form');
-    form.addEventListener('submit', e => {
-      e.preventDefault();
-      const text = form.querySelector('input[type="text"]').value.trim();
-      const date = form.querySelector('input[type="date"]').value;
-      if (text && date) { addDetailTask(date, text); form.reset(); form.querySelector('input[type="date"]').value = today; }
-    });
   }
 
   if (type === 'projects') {
     titleEl.textContent = 'Projects';
-    valueEl.textContent = appState.data.projects.filter(p => !p.completed).length;
-    const activeProjects = appState.data.projects.filter(p => !p.completed).length;
-    const allDone = appState.data.projects.length && activeProjects === 0;
-    subtitleEl.textContent = appState.data.projects.length ? (allDone ? 'all done' : `${activeProjects} active`) : 'start something big';
+    const active = appState.data.projects.filter(p => !p.completed);
+    const completed = appState.data.projects.filter(p => p.completed);
+    valueEl.textContent = active.length;
+    subtitleEl.textContent = appState.data.projects.length ? (active.length ? `${active.length} active · ${completed.length} completed` : 'all done') : 'start something big';
     if (!appState.data.projects.length) {
       bodyEl.innerHTML = '<div class="detail-empty">No projects yet. Create one below.</div>';
     } else {
-      appState.data.projects.forEach(project => bodyEl.appendChild(buildProjectCard(project, 'detail-project glass-card')));
+      const activeHeading = document.createElement('h4');
+      activeHeading.className = 'project-section-heading';
+      activeHeading.textContent = 'Active';
+      bodyEl.appendChild(activeHeading);
+      if (active.length) {
+        active.forEach(project => bodyEl.appendChild(buildProjectCard(project, 'detail-project glass-card')));
+      } else {
+        bodyEl.innerHTML += '<div class="detail-empty">No active projects. Great work.</div>';
+      }
+      const completedHeading = document.createElement('h4');
+      completedHeading.className = 'project-section-heading completed';
+      completedHeading.textContent = 'Completed';
+      bodyEl.appendChild(completedHeading);
+      if (completed.length) {
+        completed.forEach(project => bodyEl.appendChild(buildProjectCard(project, 'detail-project glass-card')));
+      } else {
+        const empty = document.createElement('div');
+        empty.className = 'detail-empty';
+        empty.textContent = 'No completed projects yet.';
+        bodyEl.appendChild(empty);
+      }
     }
     addEl.innerHTML = `
       <form class="detail-add-form">
@@ -705,7 +723,7 @@ function renderDashboardDetail(type, date = null) {
       const input = form.querySelector('input[type="text"]');
       const title = input.value.trim();
       if (!title) return;
-      appState.data.projects.push({ id: uuid(), title, steps: [], created: new Date().toISOString() });
+      appState.data.projects.push({ id: uuid(), title, steps: [], created: new Date().toISOString(), completed: false });
       scheduleSave();
       renderDashboard();
       refreshDashboardDetail();
@@ -725,7 +743,7 @@ function getWeekDayStats() {
     const tasks = appState.data.tasks[key] || [];
     const total = tasks.length;
     const done = tasks.filter(t => t.done).length;
-    days.push({ key, total, done, dayName: d.toLocaleDateString('en-US', { weekday: 'short' }), isToday: key === today });
+    days.push({ key, total, done, dayName: d.toLocaleDateString('en-US', { weekday: 'short' }), dayDate: d.getDate(), isToday: key === today });
   }
   return days;
 }
@@ -742,7 +760,7 @@ function renderWaypointTracker() {
   const offset = ringCirc * (1 - pct / 100);
 
   const width = 600;
-  const height = 110;
+  const height = 130;
   const padX = 36;
   const padY = 44;
   const usableW = width - padX * 2;
@@ -773,11 +791,13 @@ function renderWaypointTracker() {
     const radius = p.isToday ? 10 : 8;
     const core = isDone || isPartial ? `<circle cx="${p.x}" cy="${p.y}" r="3" class="waypoint-node core" />` : '';
     const dayPct = p.total ? `<text x="${p.x}" y="${p.y + 22}" class="waypoint-day-pct">${p.done}/${p.total}</text>` : '';
+    const dayDate = `<text x="${p.x}" y="${p.y + 48}" class="waypoint-date">${p.dayDate}</text>`;
     return `
       <g class="waypoint-group" data-date="${p.key}" style="cursor:pointer">
         <circle cx="${p.x}" cy="${p.y}" r="${radius}" class="${classes.join(' ')}" />
         ${core}
         <text x="${p.x}" y="${p.y + 34}" class="waypoint-label">${p.dayName}</text>
+        ${dayDate}
         ${dayPct}
       </g>
     `;
@@ -1457,6 +1477,9 @@ function addProject() {
 }
 
 function deleteProject(pid) {
+  const project = appState.data.projects.find(p => p.id === pid);
+  if (!project) return;
+  if (!confirm(`Delete "${project.title}"? This will also delete all associated tasks. This cannot be undone.`)) return;
   Object.keys(appState.data.tasks).forEach(date => {
     appState.data.tasks[date] = appState.data.tasks[date].filter(t => t.projectId !== pid);
     if (appState.data.tasks[date].length === 0) delete appState.data.tasks[date];
@@ -1573,8 +1596,10 @@ function buildProjectCard(project, cardClass = 'project-card glass-card tilt-car
     ${isCompleted ? '' : `
     <div class="add-step-row">
       <input type="text" placeholder="Add a step...">
-      <input type="date" value="${dateKey(new Date())}">
-      <button>Add</button>
+      <div class="step-date-field">
+        <input type="date" value="${dateKey(new Date())}" title="Due date">
+      </div>
+      <button class="step-add-btn" title="Add step">+</button>
     </div>`}
   `;
 
@@ -2134,6 +2159,397 @@ async function downloadReportExcel() {
   URL.revokeObjectURL(url);
 }
 
+/* Spreadsheets */
+const SHEET_DEFAULT_ROWS = 30;
+const SHEET_DEFAULT_COLS = 10;
+
+function colToIndex(col) {
+  let n = 0;
+  for (let i = 0; i < col.length; i++) {
+    n = n * 26 + (col.charCodeAt(i) - 64);
+  }
+  return n - 1;
+}
+
+function indexToCol(idx) {
+  let col = '';
+  let n = idx + 1;
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    col = String.fromCharCode(65 + rem) + col;
+    n = Math.floor((n - 1) / 26);
+  }
+  return col || 'A';
+}
+
+function cellRefToPos(ref) {
+  const m = String(ref).toUpperCase().match(/^([A-Z]+)(\d+)$/);
+  if (!m) return null;
+  const c = colToIndex(m[1]);
+  const r = parseInt(m[2], 10) - 1;
+  if (r < 0 || c < 0) return null;
+  return { r, c };
+}
+
+function posToKey(r, c) {
+  return `R${r}:C${c}`;
+}
+
+function createSpreadsheetData() {
+  return {
+    id: uuid(),
+    title: 'Untitled Spreadsheet',
+    rows: SHEET_DEFAULT_ROWS,
+    cols: SHEET_DEFAULT_COLS,
+    cells: {}
+  };
+}
+
+function tokenizeFormula(formula) {
+  const tokens = [];
+  const regex = /([A-Z]+\d+|[A-Z]+(?=\()|\d+(?:\.\d+)?|"[^"]*"|\+|-|\*|\/|\^|:|\(|\)|,)/gi;
+  let match;
+  while ((match = regex.exec(formula)) !== null) {
+    const t = match[0].toUpperCase();
+    if (/^[A-Z]+\d+$/.test(t)) tokens.push({ type: 'cell', value: t });
+    else if (/^[A-Z]+$/.test(t)) tokens.push({ type: 'func', value: t });
+    else if (/^\d+(?:\.\d+)?$/.test(t)) tokens.push({ type: 'number', value: parseFloat(t) });
+    else if (t === '"') continue;
+    else if (t.startsWith('"')) tokens.push({ type: 'string', value: t.slice(1, -1) });
+    else tokens.push({ type: 'op', value: t });
+  }
+  return tokens;
+}
+
+function parseRange(tokens, start) {
+  if (tokens[start].type !== 'cell' || tokens[start + 1]?.value !== ':' || tokens[start + 2]?.type !== 'cell') return null;
+  const a = cellRefToPos(tokens[start].value);
+  const b = cellRefToPos(tokens[start + 2].value);
+  if (!a || !b) return null;
+  return { a, b, consumed: 3 };
+}
+
+function evaluateFormula(formula, sheet, computing, currentKey) {
+  const expr = String(formula).startsWith('=') ? formula.slice(1) : formula;
+  const tokens = tokenizeFormula(expr);
+  let pos = 0;
+
+  function peek() { return tokens[pos]; }
+  function consume() { return tokens[pos++]; }
+  function expect(v) { if (peek()?.value !== v) throw new Error('expected ' + v); consume(); }
+
+  function toNum(v) {
+    if (typeof v === 'number') return v;
+    if (v === '' || v === undefined || v === null) return 0;
+    const n = parseFloat(v);
+    return isNaN(n) ? 0 : n;
+  }
+
+  function truthy(v) {
+    const n = toNum(v);
+    return n !== 0;
+  }
+
+  function cellValue(ref) {
+    const p = cellRefToPos(ref);
+    if (!p) return 0;
+    const key = posToKey(p.r, p.c);
+    if (computing.has(key)) return '#CIRC!';
+    return getSheetCellValue(sheet, p.r, p.c, computing);
+  }
+
+  function parseArgList() {
+    const args = [];
+    if (peek()?.value === ')') return args;
+    while (true) {
+      const range = parseRange(tokens, pos);
+      if (range) {
+        const vals = [];
+        for (let r = Math.min(range.a.r, range.b.r); r <= Math.max(range.a.r, range.b.r); r++) {
+          for (let c = Math.min(range.a.c, range.b.c); c <= Math.max(range.a.c, range.b.c); c++) {
+            vals.push(getSheetCellValue(sheet, r, c, computing));
+          }
+        }
+        args.push(vals);
+        pos += range.consumed;
+      } else {
+        args.push(parseExpression());
+      }
+      if (peek()?.value === ',') { consume(); continue; }
+      break;
+    }
+    return args;
+  }
+
+  function parseFunction(name) {
+    consume();
+    expect('(');
+    const args = parseArgList();
+    expect(')');
+    const flat = args.flat();
+    switch (name) {
+      case 'SUM': return flat.reduce((s, v) => s + toNum(v), 0);
+      case 'AVERAGE': return flat.length ? flat.reduce((s, v) => s + toNum(v), 0) / flat.length : 0;
+      case 'COUNT': return flat.filter(v => v !== '' && !isNaN(parseFloat(v))).length;
+      case 'MIN': return Math.min(...flat.map(toNum));
+      case 'MAX': return Math.max(...flat.map(toNum));
+      case 'IF': return truthy(args[0]) ? args[1] : args[2];
+      default: return 0;
+    }
+  }
+
+  function parsePrimary() {
+    const t = peek();
+    if (!t) throw new Error('unexpected end');
+    if (t.type === 'number') { consume(); return t.value; }
+    if (t.type === 'string') { consume(); return t.value; }
+    if (t.type === 'func') { return parseFunction(t.value); }
+    if (t.type === 'cell') {
+      const range = parseRange(tokens, pos);
+      if (range) {
+        const vals = [];
+        for (let r = Math.min(range.a.r, range.b.r); r <= Math.max(range.a.r, range.b.r); r++) {
+          for (let c = Math.min(range.a.c, range.b.c); c <= Math.max(range.a.c, range.b.c); c++) {
+            vals.push(getSheetCellValue(sheet, r, c, computing));
+          }
+        }
+        pos += range.consumed;
+        return vals;
+      }
+      consume();
+      return cellValue(t.value);
+    }
+    if (t.value === '(') { consume(); const v = parseExpression(); expect(')'); return v; }
+    throw new Error('unexpected token ' + t.value);
+  }
+
+  function parsePower() {
+    let v = parsePrimary();
+    if (peek()?.value === '^') { consume(); return Math.pow(toNum(v), toNum(parsePower())); }
+    return v;
+  }
+
+  function parseFactor() {
+    let v = parsePower();
+    while (peek() && (peek().value === '*' || peek().value === '/')) {
+      const op = consume().value;
+      const rhs = parsePower();
+      v = op === '*' ? toNum(v) * toNum(rhs) : toNum(v) / toNum(rhs);
+    }
+    return v;
+  }
+
+  function parseExpression() {
+    let v = parseFactor();
+    while (peek() && (peek().value === '+' || peek().value === '-')) {
+      const op = consume().value;
+      const rhs = parseFactor();
+      v = op === '+' ? toNum(v) + toNum(rhs) : toNum(v) - toNum(rhs);
+    }
+    return v;
+  }
+
+  try {
+    if (!tokens.length) return '';
+    const result = parseExpression();
+    return result;
+  } catch (e) {
+    return '#ERR';
+  }
+}
+
+function getSheetCellValue(sheet, r, c, computing) {
+  const key = posToKey(r, c);
+  const raw = sheet.cells[key] || '';
+  if (raw === '' || raw === undefined) return '';
+  if (String(raw).startsWith('=')) {
+    if (computing.has(key)) return '#CIRC!';
+    computing.add(key);
+    const val = evaluateFormula(raw, sheet, computing, key);
+    computing.delete(key);
+    return val;
+  }
+  const n = parseFloat(raw);
+  return isNaN(n) ? raw : n;
+}
+
+function getSheetCellDisplay(sheet, r, c) {
+  const v = getSheetCellValue(sheet, r, c, new Set());
+  if (v === '' || v === undefined || v === null) return '';
+  if (typeof v === 'number' && !Number.isInteger(v)) return v.toFixed(2).replace(/\.?0+$/, '');
+  return String(v);
+}
+
+function setSheetCell(sheet, r, c, value) {
+  const key = posToKey(r, c);
+  if (value === '' || value === undefined) {
+    delete sheet.cells[key];
+  } else {
+    sheet.cells[key] = value;
+  }
+  scheduleSave();
+  renderSheet();
+}
+
+let activeSheet = null;
+
+async function exportSpreadsheet() {
+  if (!activeSheet) return;
+  if (typeof window.createXlsx !== 'function') {
+    alert('Excel export is not available.');
+    return;
+  }
+  const rows = activeSheet.rows || SHEET_DEFAULT_ROWS;
+  const cols = activeSheet.cols || SHEET_DEFAULT_COLS;
+  const colWidths = [];
+  for (let c = 0; c < cols; c++) colWidths.push(14);
+  const data = [];
+  const header = [''];
+  for (let c = 0; c < cols; c++) header.push(indexToCol(c));
+  data.push(header);
+  for (let r = 0; r < rows; r++) {
+    const row = [String(r + 1)];
+    for (let c = 0; c < cols; c++) {
+      const v = getSheetCellDisplay(activeSheet, r, c);
+      row.push(v === '' ? '' : v);
+    }
+    data.push(row);
+  }
+  const workbook = { sheets: [{ name: activeSheet.title || 'Sheet1', freeze: { rows: 1, cols: 1 }, cols: colWidths.join(','), data }] };
+  const uint8 = await window.createXlsx(workbook);
+  const blob = new Blob([uint8], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const safe = (activeSheet.title || 'spreadsheet').replace(/[^a-z0-9\s-]/gi, '').replace(/\s+/g, '-');
+  a.download = `${safe}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function initSpreadsheets() {
+  document.getElementById('new-sheet-btn').addEventListener('click', () => {
+    const input = document.getElementById('new-sheet-title');
+    const taskToggle = document.getElementById('new-sheet-task');
+    const title = input.value.trim();
+    const sheet = createSpreadsheetData();
+    if (title) sheet.title = title;
+    appState.data.spreadsheets.push(sheet);
+    if (taskToggle && taskToggle.checked) {
+      const key = dateKey(new Date());
+      if (!appState.data.tasks[key]) appState.data.tasks[key] = [];
+      appState.data.tasks[key].push(createTask(`Spreadsheet: ${sheet.title}`, key, '', key, null, null, false, null, sheet.id));
+      taskToggle.checked = false;
+    }
+    scheduleSave();
+    renderSpreadsheets();
+    renderDashboard();
+    renderCalendar();
+    input.value = '';
+    openSpreadsheet(sheet.id);
+  });
+  document.getElementById('sheet-close').addEventListener('click', closeSpreadsheet);
+  document.getElementById('sheet-export').addEventListener('click', exportSpreadsheet);
+  document.getElementById('sheet-title-input').addEventListener('input', e => {
+    if (activeSheet) {
+      activeSheet.title = e.target.value;
+      scheduleSave();
+      renderSpreadsheets();
+    }
+  });
+  const detail = document.getElementById('spreadsheet-detail');
+  detail.addEventListener('click', e => { if (e.target === detail) closeSpreadsheet(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && detail.classList.contains('open')) closeSpreadsheet();
+  });
+}
+
+function renderSpreadsheets() {
+  const grid = document.getElementById('spreadsheets-grid');
+  grid.innerHTML = '';
+  const sheets = appState.data.spreadsheets || [];
+  if (!sheets.length) {
+    grid.innerHTML = '<div class="spreadsheets-empty">Create a spreadsheet to get started.</div>';
+    return;
+  }
+  sheets.forEach(sheet => {
+    const tile = document.createElement('div');
+    tile.className = 'spreadsheet-tile glass-card';
+    tile.innerHTML = `<div class="spreadsheet-tile-title">${escapeHtml(sheet.title || 'Untitled')}</div>`;
+    tile.addEventListener('click', () => openSpreadsheet(sheet.id));
+    grid.appendChild(tile);
+  });
+}
+
+function openSpreadsheet(id) {
+  const sheet = appState.data.spreadsheets.find(s => s.id === id);
+  if (!sheet) return;
+  activeSheet = sheet;
+  document.getElementById('sheet-title-input').value = sheet.title || '';
+  document.getElementById('spreadsheet-detail').classList.add('open');
+  renderSheet();
+}
+
+function closeSpreadsheet() {
+  document.getElementById('spreadsheet-detail').classList.remove('open');
+  activeSheet = null;
+}
+
+function renderSheet() {
+  const container = document.getElementById('sheet-container');
+  if (!activeSheet) { container.innerHTML = ''; return; }
+  const rows = activeSheet.rows || SHEET_DEFAULT_ROWS;
+  const cols = activeSheet.cols || SHEET_DEFAULT_COLS;
+
+  const table = document.createElement('table');
+  table.className = 'sheet-table';
+  const thead = document.createElement('thead');
+  const headerRow = document.createElement('tr');
+  headerRow.appendChild(document.createElement('th'));
+  for (let c = 0; c < cols; c++) {
+    const th = document.createElement('th');
+    th.textContent = indexToCol(c);
+    headerRow.appendChild(th);
+  }
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  for (let r = 0; r < rows; r++) {
+    const tr = document.createElement('tr');
+    const rowHead = document.createElement('th');
+    rowHead.textContent = r + 1;
+    tr.appendChild(rowHead);
+    for (let c = 0; c < cols; c++) {
+      const td = document.createElement('td');
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'sheet-cell';
+      input.value = getSheetCellDisplay(activeSheet, r, c);
+      input.dataset.r = r;
+      input.dataset.c = c;
+      input.addEventListener('change', e => {
+        setSheetCell(activeSheet, parseInt(e.target.dataset.r), parseInt(e.target.dataset.c), e.target.value);
+      });
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const next = table.querySelector(`input[data-r="${r + 1}"][data-c="${c}"]`);
+          if (next) next.focus();
+        }
+      });
+      td.appendChild(input);
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  container.innerHTML = '';
+  container.appendChild(table);
+}
+
 function initMain() {
   initNavigation();
   initCalendar();
@@ -2143,6 +2559,7 @@ function initMain() {
   initDashboard();
   initNotesOverlay();
   initReports();
+  initSpreadsheets();
   switchView('dashboard');
   initLiquidEffects();
 }
@@ -2150,7 +2567,7 @@ function initMain() {
 async function boot() {
   appState.users = await window.hiwayAPI.getUsers();
   const saved = await window.hiwayAPI.getData();
-  appState.data = Object.assign({ tasks: {}, projects: [], notes: [], postponed: [], trash: [], theme: 'light' }, saved);
+  appState.data = Object.assign({ tasks: {}, projects: [], notes: [], postponed: [], trash: [], spreadsheets: [], theme: 'light' }, saved);
   appState.data.notes.forEach(n => {
     if (!n.created) n.created = n.updated || new Date().toISOString();
   });
