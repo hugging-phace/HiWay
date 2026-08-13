@@ -695,31 +695,11 @@ function renderDashboardDetail(type, date = null) {
     const active = appState.data.projects.filter(p => !p.completed);
     const completed = appState.data.projects.filter(p => p.completed);
     valueEl.textContent = active.length;
-    subtitleEl.textContent = appState.data.projects.length ? (active.length ? `${active.length} active · ${completed.length} completed` : 'all done') : 'start something big';
-    if (!appState.data.projects.length) {
-      bodyEl.innerHTML = '<div class="detail-empty">No projects yet. Create one below.</div>';
+    subtitleEl.textContent = appState.data.projects.length ? (active.length ? `${active.length} active` : 'all done') : 'start something big';
+    if (!active.length) {
+      bodyEl.innerHTML = '<div class="detail-empty">No active projects. Completed projects live on the Projects tab.</div>';
     } else {
-      const activeHeading = document.createElement('h4');
-      activeHeading.className = 'project-section-heading';
-      activeHeading.textContent = 'Active';
-      bodyEl.appendChild(activeHeading);
-      if (active.length) {
-        active.forEach(project => bodyEl.appendChild(buildProjectCard(project, 'detail-project glass-card')));
-      } else {
-        bodyEl.innerHTML += '<div class="detail-empty">No active projects. Great work.</div>';
-      }
-      const completedHeading = document.createElement('h4');
-      completedHeading.className = 'project-section-heading completed';
-      completedHeading.textContent = 'Completed';
-      bodyEl.appendChild(completedHeading);
-      if (completed.length) {
-        completed.forEach(project => bodyEl.appendChild(buildProjectCard(project, 'detail-project glass-card')));
-      } else {
-        const empty = document.createElement('div');
-        empty.className = 'detail-empty';
-        empty.textContent = 'No completed projects yet.';
-        bodyEl.appendChild(empty);
-      }
+      active.forEach(project => bodyEl.appendChild(buildProjectCard(project, 'detail-project glass-card')));
     }
     addEl.innerHTML = `
       <form class="detail-add-form">
@@ -848,6 +828,8 @@ function renderWaypointTracker() {
       appState.selectedDate = key;
       openDashboardDetail('day', key);
     });
+    g.addEventListener('mouseenter', () => g.classList.add('hover'));
+    g.addEventListener('mouseleave', () => g.classList.remove('hover'));
   });
 }
 
@@ -1490,11 +1472,12 @@ function addProject() {
 function deleteProject(pid) {
   const project = appState.data.projects.find(p => p.id === pid);
   if (!project) return;
-  if (!confirm(`Delete "${project.title}"? This will also delete all associated tasks. This cannot be undone.`)) return;
+  if (!confirm(`Delete "${project.title}"? This will also delete all associated tasks and spreadsheets. This cannot be undone.`)) return;
   Object.keys(appState.data.tasks).forEach(date => {
     appState.data.tasks[date] = appState.data.tasks[date].filter(t => t.projectId !== pid);
     if (appState.data.tasks[date].length === 0) delete appState.data.tasks[date];
   });
+  appState.data.spreadsheets = appState.data.spreadsheets.filter(s => s.projectId !== pid);
   appState.data.projects = appState.data.projects.filter(p => p.id !== pid);
   scheduleSave();
   renderProjects();
@@ -1583,6 +1566,18 @@ function deleteStep(pid, sid) {
   refreshDashboardDetail();
 }
 
+function addProjectSpreadsheet(projectId, title) {
+  const t = (title || '').trim();
+  const sheet = createSpreadsheetData();
+  if (t) sheet.title = t;
+  sheet.projectId = projectId;
+  appState.data.spreadsheets.push(sheet);
+  scheduleSave();
+  renderProjects();
+  renderSpreadsheets();
+  openSpreadsheet(sheet.id);
+}
+
 function buildProjectCard(project, cardClass = 'project-card glass-card tilt-card') {
   const total = project.steps.length;
   const done = project.steps.filter(s => s.done).length;
@@ -1613,6 +1608,13 @@ function buildProjectCard(project, cardClass = 'project-card glass-card tilt-car
       </div>
       <button class="step-add-btn" title="Add step">+</button>
     </div>`}
+    <div class="project-sheets">
+      <div class="project-sheets-title">
+        <span>Spreadsheets</span>
+        ${isCompleted ? '' : `<button class="project-add-sheet" title="Add spreadsheet">+ Spreadsheet</button>`}
+      </div>
+      <ul class="project-sheets-list"></ul>
+    </div>
   `;
 
   const stepsUl = card.querySelector('.project-steps');
@@ -1636,6 +1638,25 @@ function buildProjectCard(project, cardClass = 'project-card glass-card tilt-car
     addBtn.addEventListener('click', add);
     stepInput.addEventListener('keydown', e => { if (e.key === 'Enter') add(); });
   }
+
+  const sheetList = card.querySelector('.project-sheets-list');
+  const projectSheets = appState.data.spreadsheets.filter(s => s.projectId === project.id);
+  if (!projectSheets.length) {
+    sheetList.innerHTML = `<li class="project-sheet-empty">No spreadsheets yet.</li>`;
+  } else {
+    projectSheets.forEach(sheet => {
+      const li = document.createElement('li');
+      li.className = 'project-sheet-item';
+      li.innerHTML = `<span class="project-sheet-name">${escapeHtml(sheet.title || 'Untitled Spreadsheet')}</span>`;
+      li.addEventListener('click', () => openSpreadsheet(sheet.id));
+      sheetList.appendChild(li);
+    });
+  }
+  if (!isCompleted) {
+    const addSheetBtn = card.querySelector('.project-add-sheet');
+    if (addSheetBtn) addSheetBtn.addEventListener('click', () => addProjectSpreadsheet(project.id));
+  }
+
   card.querySelector('.project-complete').addEventListener('click', () => toggleProjectCompleted(project.id));
   card.querySelector('.project-delete').addEventListener('click', () => deleteProject(project.id));
 
@@ -2228,6 +2249,7 @@ function createSpreadsheetData() {
   return {
     id: uuid(),
     title: 'Untitled Spreadsheet',
+    projectId: null,
     rows: SHEET_DEFAULT_ROWS,
     cols: SHEET_DEFAULT_COLS,
     cells: {},
@@ -2511,15 +2533,28 @@ function renderSpreadsheets() {
     return;
   }
   sheets.forEach(sheet => {
+    const project = sheet.projectId ? appState.data.projects.find(p => p.id === sheet.projectId) : null;
     const tile = document.createElement('div');
     tile.className = 'spreadsheet-tile glass-card';
     tile.innerHTML = `
-      <div class="spreadsheet-tile-title">${escapeHtml(sheet.title || 'Untitled')}</div>
-      <button class="spreadsheet-tile-delete" title="Delete spreadsheet">×</button>
+      <div class="spreadsheet-tile-header">
+        <span class="spreadsheet-tile-title-text">${escapeHtml(sheet.title || 'Untitled')}</span>
+        <div class="spreadsheet-tile-controls">
+          ${project ? `<button class="spreadsheet-tile-badge project-badge" data-pid="${escapeHtml(sheet.projectId)}" title="Open project">Project</button>` : ''}
+          <button class="spreadsheet-tile-delete" title="Delete spreadsheet">×</button>
+        </div>
+      </div>
+      <div class="spreadsheet-tile-body">
+        <div class="spreadsheet-tile-icon">▦</div>
+      </div>
     `;
     tile.addEventListener('click', () => openSpreadsheet(sheet.id));
     const delBtn = tile.querySelector('.spreadsheet-tile-delete');
     delBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteSpreadsheet(sheet.id); });
+    const projBadge = tile.querySelector('.spreadsheet-tile-badge');
+    if (projBadge) {
+      projBadge.addEventListener('click', (e) => { e.stopPropagation(); openProject(projBadge.dataset.pid); });
+    }
     grid.appendChild(tile);
   });
 }
