@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -57,6 +57,9 @@
           </button>
           <button data-view="notes" class="nav-item">
             <span class="nav-icon">✦</span><span class="nav-label">Brainstorm</span>
+          </button>
+          <button data-view="reports" class="nav-item">
+            <span class="nav-icon">▤</span><span class="nav-label">Reports</span>
           </button>
           <button data-view="deferred" class="nav-item">
             <span class="nav-icon">⧗</span><span class="nav-label">Deferred</span>
@@ -164,7 +167,10 @@
             <div id="calendar-body" class="calendar-body"></div>
           </div>
           <div class="task-panel glass-card">
-            <h3 id="selected-date-label">Select a date</h3>
+            <div class="task-panel-header">
+              <h3 id="selected-date-label">Select a date</h3>
+              <button id="share-day-btn" class="icon-btn" title="Share today's list" style="display:none">↗</button>
+            </div>
             <div class="task-input-row">
               <input type="text" id="new-task-input" placeholder="Add a task for this date...">
               <button id="add-task-btn" class="primary-btn liquid-btn">+</button>
@@ -207,6 +213,36 @@
           </div>
         </div>
 
+        <!-- Reports -->
+        <div id="view-reports" class="view">
+          <div class="reports-shell glass-card">
+            <div class="reports-header">
+              <h3>HR Report</h3>
+              <p class="reports-sub">Select a date range and what to include, then download an Excel summary.</p>
+            </div>
+            <div class="reports-controls">
+              <div class="reports-field">
+                <label for="report-start">From</label>
+                <input type="date" id="report-start" class="glass-input">
+              </div>
+              <div class="reports-field">
+                <label for="report-end">To</label>
+                <input type="date" id="report-end" class="glass-input">
+              </div>
+              <label class="reports-check glass-input">
+                <input type="checkbox" id="report-tasks" checked>
+                <span>Completed tasks</span>
+              </label>
+              <label class="reports-check glass-input">
+                <input type="checkbox" id="report-projects" checked>
+                <span>Completed projects</span>
+              </label>
+            </div>
+            <div class="reports-preview" id="reports-preview"></div>
+            <button id="download-report" class="primary-btn liquid-btn">Download Excel</button>
+          </div>
+        </div>
+
         <!-- Deferred -->
         <div id="view-deferred" class="view">
           <div class="deferred-shell glass-card">
@@ -237,6 +273,20 @@
     </div>
   </div>
 
+  <!-- Task notes overlay -->
+  <div id="notes-overlay" class="notes-overlay">
+    <div class="notes-card glass-card">
+      <header class="notes-header">
+        <h3>Task Notes</h3>
+        <button id="notes-close" class="icon-btn" aria-label="Close">×</button>
+      </header>
+      <textarea id="notes-text" class="glass-input" placeholder="Add details, links, or context..."></textarea>
+      <button id="notes-save" class="primary-btn liquid-btn">Save Notes</button>
+    </div>
+  </div>
+
+  <script src="../node_modules/@litejs/zip/zip.js"></script>
+  <script src="../node_modules/@litejs/xlsx/xlsx.js"></script>
   <script src="test-mock.js"></script>
   <script src="app.js"></script>
 </body>

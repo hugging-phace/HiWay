@@ -9,7 +9,7 @@ const appState = {
     notes: [],
     postponed: [],
     trash: [],
-    theme: 'dark'
+    theme: 'light'
   },
   currentView: 'dashboard',
   calDate: new Date(),
@@ -23,6 +23,7 @@ const appState = {
 
 let saveTimeout;
 let dashboardDetailType = null;
+let notesTarget = null;
 
 function scheduleSave() {
   clearTimeout(saveTimeout);
@@ -60,7 +61,7 @@ function getNextDay(date) {
 }
 
 function initTheme() {
-  const savedTheme = appState.data.theme || 'dark';
+  const savedTheme = appState.data.theme || 'light';
   document.documentElement.setAttribute('data-theme', savedTheme);
   if (typeof Chart !== 'undefined') {
     const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text').trim();
@@ -174,6 +175,7 @@ function switchView(view) {
   if (view === 'projects') renderProjects();
   if (view === 'notes') renderNotes();
   if (view === 'deferred') renderDeferred();
+  if (view === 'reports') renderReports();
 }
 
 /* Dashboard */
@@ -348,11 +350,13 @@ function buildDetailTaskItem(task, date, idx) {
   li.innerHTML = `
     <span class="task-text">${escapeHtml(task.text)}</span>
     <div class="task-actions">
+      <button class="notes-btn ${task.notes ? 'has-notes' : ''}" title="Notes">📝</button>
       <button class="action-btn done-btn" title="Complete">✓</button>
       <button class="action-btn postpone-btn" title="Postpone">↻</button>
       <button class="action-btn delete-btn" title="Delete">×</button>
     </div>
   `;
+  li.querySelector('.notes-btn').addEventListener('click', () => openTaskNotes(date, idx));
   li.querySelector('.done-btn').addEventListener('click', () => completeTaskForDate(date, idx));
   li.querySelector('.postpone-btn').addEventListener('click', () => openPostponeModalForDate(date, idx));
   li.querySelector('.delete-btn').addEventListener('click', () => openDeleteModalForDate(date, idx));
@@ -379,7 +383,7 @@ function addDetailTask(date, text) {
   if (!text) return;
   const key = dateKey(date);
   if (!appState.data.tasks[key]) appState.data.tasks[key] = [];
-  appState.data.tasks[key].push({ text, done: false, id: uuid() });
+  appState.data.tasks[key].push({ text, done: false, notes: '', id: uuid() });
   scheduleSave();
   renderCalendar();
   renderDashboard();
@@ -779,6 +783,7 @@ function initCalendar() {
   document.getElementById('new-task-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') addTaskForSelectedDate();
   });
+  document.getElementById('share-day-btn').addEventListener('click', shareDay);
 }
 
 function navigateCalendar(dir) {
@@ -898,6 +903,8 @@ function createDayCell(date, otherMonth, isWeek = false, isDay = false) {
 
 function renderTaskPanel() {
   document.getElementById('selected-date-label').textContent = 'Tasks for ' + appState.selectedDate;
+  const shareBtn = document.getElementById('share-day-btn');
+  shareBtn.style.display = appState.calMode === 'day' ? 'flex' : 'none';
   const list = document.getElementById('task-list');
   list.innerHTML = '';
   const tasks = appState.data.tasks[appState.selectedDate] || [];
@@ -907,11 +914,13 @@ function renderTaskPanel() {
     li.innerHTML = `
       <span class="task-text">${escapeHtml(task.text)}</span>
       <div class="task-actions">
+        <button class="notes-btn ${task.notes ? 'has-notes' : ''}" title="Notes">📝</button>
         <button class="action-btn done-btn" title="Complete">✓</button>
         <button class="action-btn postpone-btn" title="Postpone">↻</button>
         <button class="action-btn delete-btn" title="Delete">×</button>
       </div>
     `;
+    li.querySelector('.notes-btn').addEventListener('click', () => openTaskNotes(appState.selectedDate, idx));
     li.querySelector('.done-btn').addEventListener('click', () => completeTask(idx));
     li.querySelector('.postpone-btn').addEventListener('click', () => openPostponeModal(idx));
     li.querySelector('.delete-btn').addEventListener('click', () => openDeleteModal(idx));
@@ -924,7 +933,7 @@ function addTaskForSelectedDate() {
   const text = input.value.trim();
   if (!text) return;
   if (!appState.data.tasks[appState.selectedDate]) appState.data.tasks[appState.selectedDate] = [];
-  appState.data.tasks[appState.selectedDate].push({ text, done: false, id: uuid() });
+  appState.data.tasks[appState.selectedDate].push({ text, done: false, notes: '', id: uuid() });
   input.value = '';
   scheduleSave();
   renderCalendar();
@@ -933,11 +942,13 @@ function addTaskForSelectedDate() {
 function completeTask(idx) {
   const tasks = appState.data.tasks[appState.selectedDate];
   if (!tasks || !tasks[idx]) return;
-  tasks[idx].done = !tasks[idx].done;
+  const wasDone = tasks[idx].done;
+  tasks[idx].done = !wasDone;
   scheduleSave();
   renderCalendar();
   renderDashboard();
   refreshDashboardDetail();
+  if (!wasDone) openTaskNotes(appState.selectedDate, idx, true);
 }
 
 function removeTaskAt(idx) {
@@ -984,7 +995,7 @@ function openDeleteModal(idx) {
     'Move to Trash',
     () => {
       const removed = removeTaskAt(idx);
-      appState.data.trash.push({ id: uuid(), text: removed.text, fromDate: appState.selectedDate, moved: new Date().toISOString() });
+      appState.data.trash.push({ id: uuid(), text: removed.text, notes: removed.notes || '', fromDate: appState.selectedDate, moved: new Date().toISOString() });
       scheduleSave();
       renderCalendar();
       renderDashboard();
@@ -1026,13 +1037,14 @@ function openPostponeModal(idx) {
       appState.data.postponed.push({
         id: uuid(),
         text: removed.text,
+        notes: removed.notes || '',
         fromDate: appState.selectedDate,
         targetDate,
         moved: new Date().toISOString()
       });
     } else {
       if (!appState.data.tasks[targetDate]) appState.data.tasks[targetDate] = [];
-      appState.data.tasks[targetDate].push({ text: removed.text, done: false, id: uuid() });
+      appState.data.tasks[targetDate].push({ text: removed.text, done: false, notes: removed.notes || '', id: uuid() });
     }
     scheduleSave();
     renderCalendar();
@@ -1123,7 +1135,7 @@ function restoreDeferredItem(idx, targetDate) {
   const item = items[idx];
   const key = dateKey(targetDate);
   if (!appState.data.tasks[key]) appState.data.tasks[key] = [];
-  appState.data.tasks[key].push({ text: item.text, done: false, id: uuid() });
+  appState.data.tasks[key].push({ text: item.text, done: false, notes: item.notes || '', id: uuid() });
   items.splice(idx, 1);
   scheduleSave();
   renderDeferred();
@@ -1552,6 +1564,176 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+/* Task notes overlay */
+function initNotesOverlay() {
+  document.getElementById('notes-close').addEventListener('click', closeNotesOverlay);
+  document.getElementById('notes-save').addEventListener('click', saveTaskNotes);
+  document.getElementById('notes-overlay').addEventListener('click', e => { if (e.target === document.getElementById('notes-overlay')) closeNotesOverlay(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('notes-overlay').classList.contains('open')) closeNotesOverlay(); });
+}
+
+function openTaskNotes(date, idx, fromComplete = false) {
+  const tasks = appState.data.tasks[date];
+  if (!tasks || !tasks[idx]) return;
+  notesTarget = { date, idx };
+  const task = tasks[idx];
+  document.getElementById('notes-text').value = task.notes || '';
+  document.querySelector('#notes-overlay h3').textContent = fromComplete ? 'Add completion notes' : 'Task Notes';
+  document.getElementById('notes-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('notes-text').focus(), 50);
+}
+
+function saveTaskNotes() {
+  if (!notesTarget) return;
+  const tasks = appState.data.tasks[notesTarget.date];
+  if (!tasks || !tasks[notesTarget.idx]) return;
+  tasks[notesTarget.idx].notes = document.getElementById('notes-text').value.trim();
+  scheduleSave();
+  renderCalendar();
+  renderDashboard();
+  refreshDashboardDetail();
+  closeNotesOverlay();
+}
+
+function closeNotesOverlay() {
+  document.getElementById('notes-overlay').classList.remove('open');
+  notesTarget = null;
+}
+
+/* Share today's list */
+function fallbackCopy(textarea) {
+  textarea.select();
+  textarea.setSelectionRange(0, 99999);
+  document.execCommand('copy');
+}
+
+function shareDay() {
+  const tasks = appState.data.tasks[appState.selectedDate] || [];
+  if (tasks.length === 0) {
+    openModal("Share today's list", '<p style="color:var(--muted)">No tasks on this day to share.</p>', 'Close', () => {});
+    return;
+  }
+  const lines = tasks.map(t => `${t.done ? '- [x]' : '- [ ]'} ${t.text}${t.notes ? ' (' + t.notes + ')' : ''}`);
+  const text = `Some things on my to-do list for today:\n${lines.join('\n')}`;
+  const body = `<textarea id="share-text" class="share-text" readonly>${escapeHtml(text)}</textarea>`;
+  openModal("Share today's list", body, 'Copy to clipboard', () => {
+    const ta = document.getElementById('share-text');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(ta.value).catch(() => fallbackCopy(ta));
+    } else {
+      fallbackCopy(ta);
+    }
+  });
+}
+
+/* Reports */
+function initReports() {
+  const start = document.getElementById('report-start');
+  const end = document.getElementById('report-end');
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth(), 1);
+  start.value = dateKey(first);
+  end.value = dateKey(now);
+  ['input', 'change'].forEach(evt => {
+    start.addEventListener(evt, renderReports);
+    end.addEventListener(evt, renderReports);
+  });
+  document.getElementById('report-tasks').addEventListener('change', renderReports);
+  document.getElementById('report-projects').addEventListener('change', renderReports);
+  document.getElementById('download-report').addEventListener('click', downloadReportExcel);
+}
+
+function renderReports() {
+  const start = document.getElementById('report-start').value;
+  const end = document.getElementById('report-end').value;
+  const includeTasks = document.getElementById('report-tasks').checked;
+  const includeProjects = document.getElementById('report-projects').checked;
+  const preview = document.getElementById('reports-preview');
+  const { taskRows, projectRows } = generateReportData(start, end, includeTasks, includeProjects);
+  if (!taskRows.length && !projectRows.length) {
+    preview.innerHTML = '<p>No completed tasks or projects match this range.</p>';
+    return;
+  }
+  let html = '';
+  if (taskRows.length) html += `<p><strong>${taskRows.length}</strong> completed task${taskRows.length === 1 ? '' : 's'}</p>`;
+  if (projectRows.length) html += `<p><strong>${projectRows.length}</strong> completed project${projectRows.length === 1 ? '' : 's'}</p>`;
+  preview.innerHTML = html;
+}
+
+function generateReportData(start, end, includeTasks, includeProjects) {
+  const taskRows = [];
+  const projectRows = [];
+  if (includeTasks) {
+    Object.entries(appState.data.tasks).forEach(([date, tasks]) => {
+      if (date < start || date > end) return;
+      tasks.forEach(task => {
+        if (task.done) taskRows.push({ date, text: task.text, notes: task.notes || '' });
+      });
+    });
+    taskRows.sort((a, b) => a.date.localeCompare(b.date));
+  }
+  if (includeProjects) {
+    appState.data.projects.forEach(project => {
+      const total = project.steps.length;
+      const done = project.steps.filter(s => s.done).length;
+      if (total && done === total) {
+        const created = (project.created || '').slice(0, 10);
+        if (created >= start && created <= end) {
+          projectRows.push({ title: project.title, steps: `${done}/${total}`, status: 'Completed', pct: 100, created: project.created });
+        }
+      }
+    });
+    projectRows.sort((a, b) => a.created.localeCompare(b.created));
+  }
+  return { taskRows, projectRows };
+}
+
+async function downloadReportExcel() {
+  if (typeof window.createXlsx !== 'function') {
+    alert('Excel export is not available.');
+    return;
+  }
+  const start = document.getElementById('report-start').value;
+  const end = document.getElementById('report-end').value;
+  const includeTasks = document.getElementById('report-tasks').checked;
+  const includeProjects = document.getElementById('report-projects').checked;
+  const { taskRows, projectRows } = generateReportData(start, end, includeTasks, includeProjects);
+  const sheets = [];
+  if (taskRows.length) {
+    const taskData = [
+      ['Date', 'Task', 'Status', 'Notes']
+    ];
+    taskRows.forEach(row => {
+      taskData.push([{ format: 'date', value: new Date(row.date + 'T00:00:00') }, row.text, 'Completed', row.notes]);
+    });
+    sheets.push({ name: 'Completed Tasks', freeze: { rows: 1 }, cols: '14,40,14,50', data: taskData });
+  }
+  if (projectRows.length) {
+    const projectData = [
+      ['Project', 'Steps', 'Status', 'Completion %', 'Created', 'Notes']
+    ];
+    projectRows.forEach(row => {
+      projectData.push([row.title, row.steps, row.status, row.pct + '%', { format: 'date', value: new Date(row.created) }, '']);
+    });
+    sheets.push({ name: 'Completed Projects', freeze: { rows: 1 }, cols: '30,12,14,14,14,40', data: projectData });
+  }
+  if (!sheets.length) {
+    alert('No data to export for the selected range.');
+    return;
+  }
+  const workbook = { sheets };
+  const uint8 = await window.createXlsx(workbook);
+  const blob = new Blob([uint8], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Onward-Report-${start}-to-${end}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function initMain() {
   initNavigation();
   initCalendar();
@@ -1559,6 +1741,8 @@ function initMain() {
   initNotes();
   initDeferred();
   initDashboard();
+  initNotesOverlay();
+  initReports();
   switchView('dashboard');
   initLiquidEffects();
 }
@@ -1566,7 +1750,7 @@ function initMain() {
 async function boot() {
   appState.users = await window.hiwayAPI.getUsers();
   const saved = await window.hiwayAPI.getData();
-  appState.data = Object.assign({ tasks: {}, projects: [], notes: [], postponed: [], trash: [], theme: 'dark' }, saved);
+  appState.data = Object.assign({ tasks: {}, projects: [], notes: [], postponed: [], trash: [], theme: 'light' }, saved);
   appState.data.notes.forEach(n => {
     if (!n.created) n.created = n.updated || new Date().toISOString();
   });

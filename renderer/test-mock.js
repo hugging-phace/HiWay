@@ -1,7 +1,7 @@
 // Browser-only mock for hiwayAPI when testing outside Electron
 const mockStorage = {
   users: JSON.parse(localStorage.getItem('hiway-users') || '{}'),
-  data: JSON.parse(localStorage.getItem('hiway-data') || '{"tasks":{},"projects":[],"notes":[],"postponed":[],"trash":[],"theme":"dark"}')
+  data: JSON.parse(localStorage.getItem('hiway-data') || '{"tasks":{},"projects":[],"notes":[],"postponed":[],"trash":[],"theme":"light"}')
 };
 
 window.hiwayAPI = {

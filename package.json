@@ -1,6 +1,6 @@
 {
   "name": "hiway",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Onward - futuristic task and productivity manager for Mac and Windows",
   "main": "main.js",
   "author": "hugging-phace",
@@ -39,6 +39,7 @@
     "electron-builder": "^26.15.7"
   },
   "dependencies": {
+    "@litejs/xlsx": "^26.8.0",
     "chart.js": "^4.4.3"
   }
 }
