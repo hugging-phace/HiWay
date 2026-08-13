@@ -78,6 +78,7 @@
         <div class="views-container">
           <header class="topbar glass-panel">
             <h2 id="page-title">Dashboard</h2>
+            <button id="tour-btn" class="tour-btn" title="Start a tour">?</button>
             <div class="user-pill glass-pill">
               <span id="current-user">@user</span>
             </div>
@@ -332,6 +333,19 @@
         <button class="secondary-btn" id="sheet-rows-tall" title="Wider rows">Rows +</button>
       </div>
       <div id="sheet-container" class="sheet-container"></div>
+    </div>
+  </div>
+
+  <!-- Tour overlay -->
+  <div id="tour-overlay" class="tour-overlay" style="display:none;" aria-hidden="true"></div>
+  <div class="tour-spotlight" style="display:none;" aria-hidden="true"></div>
+  <div id="tour-tooltip" class="tour-tooltip" style="display:none;" aria-hidden="true">
+    <div class="tour-arrow"></div>
+    <p id="tour-message">Welcome to Onward.</p>
+    <div class="tour-actions">
+      <button id="tour-skip" class="tour-skip">Exit</button>
+      <button id="tour-prev" class="tour-prev">Back</button>
+      <button id="tour-next" class="tour-next primary-btn">Next</button>
     </div>
   </div>
 

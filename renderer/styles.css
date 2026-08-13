@@ -434,6 +434,27 @@ html[data-theme="light"] .segmented-control button:hover {
   font-size: 0.9rem;
 }
 
+.tour-btn {
+  margin-left: auto;
+  margin-right: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--glass);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.tour-btn:hover {
+  background: var(--accent);
+  color: white;
+  transform: scale(1.1);
+}
+
 /* Glass utilities */
 .glass-card, .glass-panel, .glass-pill {
   background: var(--glass);
@@ -1741,27 +1762,59 @@ html[data-theme="light"] .add-step-row {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 48px;
+  max-width: 18px;
   height: 18px;
-  padding: 0 6px;
+  padding: 0;
   margin-right: 6px;
   border-radius: 999px;
+  border: none;
+  overflow: hidden;
+  white-space: nowrap;
   font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   color: white;
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  transition: transform 0.15s ease, filter 0.15s ease;
+  cursor: pointer;
+  font-family: inherit;
+  transition: max-width 0.25s ease, padding 0.25s ease, transform 0.15s ease, filter 0.15s ease;
 }
 
 .task-spreadsheet-badge {
-  background: linear-gradient(135deg, #0ea5e9, #22d3ee);
+  background: linear-gradient(135deg, #22c55e, #16a34a);
 }
 
 .task-project-badge:hover, .task-spreadsheet-badge:hover {
+  max-width: 90px;
+  padding: 0 8px;
   transform: scale(1.05);
   filter: brightness(1.1);
+}
+
+.task-project-badge .badge-dot, .task-spreadsheet-badge .badge-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  font-size: 0.55rem;
+  line-height: 1;
+}
+
+.task-project-badge .badge-text, .task-spreadsheet-badge .badge-text {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: max-width 0.25s ease, opacity 0.2s ease, padding 0.2s ease;
+}
+
+.task-project-badge:hover .badge-text, .task-spreadsheet-badge:hover .badge-text {
+  max-width: 70px;
+  opacity: 1;
+  padding-left: 4px;
 }
 
 .task-badge {
@@ -2890,9 +2943,16 @@ html[data-theme="light"] .notes-overlay {
 }
 
 .spreadsheet-tile-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 18px;
+  height: 18px;
+  padding: 0;
   border: none;
   border-radius: 999px;
-  padding: 1px 8px;
+  overflow: hidden;
+  white-space: nowrap;
   font-size: 0.55rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -2901,12 +2961,39 @@ html[data-theme="light"] .notes-overlay {
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
   cursor: pointer;
   z-index: 2;
-  transition: transform 0.15s ease, filter 0.15s ease;
+  transition: max-width 0.25s ease, padding 0.25s ease, transform 0.15s ease, filter 0.15s ease;
 }
 
 .spreadsheet-tile-badge:hover {
+  max-width: 80px;
+  padding: 0 8px;
   transform: scale(1.05);
   filter: brightness(1.1);
+}
+
+.spreadsheet-tile-badge .badge-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  font-size: 0.55rem;
+  line-height: 1;
+}
+
+.spreadsheet-tile-badge .badge-text {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: max-width 0.25s ease, opacity 0.2s ease, padding 0.2s ease;
+}
+
+.spreadsheet-tile-badge:hover .badge-text {
+  max-width: 60px;
+  opacity: 1;
+  padding-left: 4px;
 }
 
 .spreadsheet-tile-body {
@@ -3268,6 +3355,141 @@ html[data-theme="light"] .peek-overlay {
   flex: 1;
   overflow-y: auto;
   min-height: 0;
+}
+
+/* Tour overlay */
+.tour-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(11, 12, 21, 0.45);
+  backdrop-filter: blur(12px) brightness(0.85);
+  -webkit-backdrop-filter: blur(12px) brightness(0.85);
+  pointer-events: auto;
+  opacity: 0;
+  transition: opacity 0.4s ease, backdrop-filter 0.4s ease;
+  mask-image: radial-gradient(circle at var(--spot-x, 50%) var(--spot-y, 50%), transparent 0, transparent var(--spot-radius, 80px), black calc(var(--spot-radius, 80px) + 40px));
+  -webkit-mask-image: radial-gradient(circle at var(--spot-x, 50%) var(--spot-y, 50%), transparent 0, transparent var(--spot-radius, 80px), black calc(var(--spot-radius, 80px) + 40px));
+}
+
+.tour-overlay.active {
+  opacity: 1;
+}
+
+.tour-spotlight {
+  position: fixed;
+  border-radius: 12px;
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.25), inset 0 0 18px rgba(168, 85, 247, 0.15);
+  pointer-events: none;
+  z-index: 1001;
+  transition: top 0.4s ease, left 0.4s ease, width 0.4s ease, height 0.4s ease, opacity 0.3s ease;
+  opacity: 0;
+}
+
+.tour-spotlight.active {
+  opacity: 1;
+}
+
+.tour-tooltip {
+  position: fixed;
+  z-index: 1002;
+  min-width: 260px;
+  max-width: 340px;
+  padding: 18px 20px;
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  color: var(--text);
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.3s ease, transform 0.3s ease, top 0.4s ease, left 0.4s ease;
+}
+
+.tour-tooltip.active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.tour-tooltip p {
+  margin: 0 0 14px 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.tour-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.tour-actions button {
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--glass);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.tour-actions button:hover {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.tour-actions .tour-next {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.tour-actions .tour-next:hover {
+  filter: brightness(1.1);
+}
+
+.tour-arrow {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--glass);
+  border-left: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  transform: rotate(45deg);
+}
+
+.tour-tooltip[data-pos="bottom"] .tour-arrow {
+  top: -7px;
+  left: 50%;
+  margin-left: -6px;
+}
+
+.tour-tooltip[data-pos="top"] .tour-arrow {
+  bottom: -7px;
+  left: 50%;
+  margin-left: -6px;
+  transform: rotate(225deg);
+}
+
+.tour-tooltip[data-pos="left"] .tour-arrow {
+  right: -7px;
+  top: 50%;
+  margin-top: -6px;
+  transform: rotate(135deg);
+}
+
+.tour-tooltip[data-pos="right"] .tour-arrow {
+  left: -7px;
+  top: 50%;
+  margin-top: -6px;
+  transform: rotate(315deg);
 }
 
 .peek-card .project-card {

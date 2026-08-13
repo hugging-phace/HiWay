@@ -446,8 +446,8 @@ function bindTaskActionButtons(li, task, date, idx) {
 }
 
 function taskBadge(task) {
-  if (task.projectId) return `<button class="task-project-badge task-badge" data-pid="${escapeHtml(task.projectId)}" title="Open project">Project</button>`;
-  if (task.spreadsheetId) return `<button class="task-spreadsheet-badge task-badge" data-sid="${escapeHtml(task.spreadsheetId)}" title="Open spreadsheet">Spreadsheet</button>`;
+  if (task.projectId) return `<button class="task-project-badge task-badge" data-pid="${escapeHtml(task.projectId)}" title="Open project"><span class="badge-dot" aria-hidden="true">●</span><span class="badge-text">Project</span></button>`;
+  if (task.spreadsheetId) return `<button class="task-spreadsheet-badge task-badge" data-sid="${escapeHtml(task.spreadsheetId)}" title="Open spreadsheet"><span class="badge-dot" aria-hidden="true">●</span><span class="badge-text">Spreadsheet</span></button>`;
   return '';
 }
 
@@ -2607,7 +2607,7 @@ function renderSpreadsheets() {
       <div class="spreadsheet-tile-header">
         <span class="spreadsheet-tile-title-text">${escapeHtml(sheet.title || 'Untitled')}</span>
         <div class="spreadsheet-tile-controls">
-          ${project ? `<button class="spreadsheet-tile-badge project-badge" data-pid="${escapeHtml(sheet.projectId)}" title="Open project">Project</button>` : ''}
+          ${project ? `<button class="spreadsheet-tile-badge project-badge" data-pid="${escapeHtml(sheet.projectId)}" title="Open project"><span class="badge-dot" aria-hidden="true">●</span><span class="badge-text">Project</span></button>` : ''}
           <button class="spreadsheet-tile-delete" title="Delete spreadsheet">×</button>
         </div>
       </div>
@@ -2811,6 +2811,187 @@ function showSheetFilterMenu(col, anchor) {
   document.addEventListener('click', function close(e) { if (!menu.contains(e.target) && e.target !== anchor) { menu.remove(); document.removeEventListener('click', close); } });
 }
 
+/* Tour */
+let tourSteps = [];
+let tourIndex = 0;
+let tourTargetEl = null;
+
+function initTour() {
+  const overlay = document.getElementById('tour-overlay');
+  const tooltip = document.getElementById('tour-tooltip');
+  const message = document.getElementById('tour-message');
+  const nextBtn = document.getElementById('tour-next');
+  const prevBtn = document.getElementById('tour-prev');
+  const skipBtn = document.getElementById('tour-skip');
+  const startBtn = document.getElementById('tour-btn');
+  if (!overlay || !tooltip || !startBtn) return;
+
+  tourSteps = [
+    { target: '.topbar', message: 'This is the top bar. The question mark starts this tour any time.', position: 'bottom' },
+    { target: '.kpi-tile[data-type="today"]', message: 'Today shows tasks scheduled for today. Click the tile to expand and add tasks quickly.', position: 'right' },
+    { target: '.kpi-tile[data-type="upcoming"]', message: 'Upcoming shows future tasks so you can get ahead.', position: 'right' },
+    { target: '.kpi-tile[data-type="rollover"]', message: 'Rollover rate tracks overdue tasks. Keep this low to stay on track.', position: 'right' },
+    { target: '.kpi-tile[data-type="projects"]', message: 'Projects shows your active projects. Click to see progress and add steps.', position: 'right' },
+    { target: '.sidebar nav', message: 'Switch between Dashboard, Calendar, Projects, Brainstorm, Reports, Spreadsheets, and Deferred.', position: 'right' },
+    { target: '#calendar-card', message: 'Calendar lets you browse dates, search tasks, and share a day as text.', position: 'bottom' },
+    { target: null, message: 'Notice the colored dots next to tasks. Purple means a project; green means a spreadsheet. Hover a dot to see the label, then click to open it.', position: 'center' }
+  ];
+
+  startBtn.addEventListener('click', () => { startTour(); });
+  nextBtn?.addEventListener('click', () => { nextTourStep(); });
+  prevBtn?.addEventListener('click', () => { prevTourStep(); });
+  skipBtn?.addEventListener('click', () => { endTour(); });
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) endTour();
+  });
+  document.addEventListener('keydown', e => {
+    if (overlay.style.display === 'none') return;
+    if (e.key === 'Escape') endTour();
+    if (e.key === 'ArrowRight') nextTourStep();
+    if (e.key === 'ArrowLeft') prevTourStep();
+  });
+}
+
+function startTour() {
+  const overlay = document.getElementById('tour-overlay');
+  const tooltip = document.getElementById('tour-tooltip');
+  overlay.style.display = 'block';
+  tooltip.style.display = 'block';
+  tourIndex = 0;
+  showTourStep(0);
+  requestAnimationFrame(() => { overlay.classList.add('active'); tooltip.classList.add('active'); });
+}
+
+function endTour() {
+  const overlay = document.getElementById('tour-overlay');
+  const tooltip = document.getElementById('tour-tooltip');
+  const spotlight = document.querySelector('.tour-spotlight');
+  overlay.classList.remove('active');
+  tooltip.classList.remove('active');
+  spotlight?.classList.remove('active');
+  setTimeout(() => {
+    overlay.style.display = 'none';
+    tooltip.style.display = 'none';
+    if (spotlight) spotlight.style.display = 'none';
+    if (tourTargetEl) tourTargetEl.classList.remove('tour-target');
+    tourTargetEl = null;
+  }, 350);
+}
+
+function nextTourStep() {
+  if (tourIndex < tourSteps.length - 1) showTourStep(tourIndex + 1);
+  else endTour();
+}
+
+function prevTourStep() {
+  if (tourIndex > 0) showTourStep(tourIndex - 1);
+}
+
+function showTourStep(idx) {
+  tourIndex = idx;
+  const step = tourSteps[idx];
+  const overlay = document.getElementById('tour-overlay');
+  const tooltip = document.getElementById('tour-tooltip');
+  const message = document.getElementById('tour-message');
+  const nextBtn = document.getElementById('tour-next');
+  const prevBtn = document.getElementById('tour-prev');
+  const skipBtn = document.getElementById('tour-skip');
+  const spotlight = document.querySelector('.tour-spotlight');
+
+  message.textContent = step.message;
+  nextBtn.textContent = idx === tourSteps.length - 1 ? 'Finish' : 'Next';
+  prevBtn.style.visibility = idx === 0 ? 'hidden' : 'visible';
+  skipBtn.textContent = 'Exit';
+
+  if (tourTargetEl) {
+    tourTargetEl.classList.remove('tour-target');
+    tourTargetEl = null;
+  }
+
+  let target = step.target ? document.querySelector(step.target) : null;
+  if (step.target && !target) {
+    const fallback = tourSteps.slice(idx + 1).find(s => !s.target || document.querySelector(s.target));
+    if (fallback) { nextTourStep(); return; }
+  }
+  if (target) {
+    target.classList.add('tour-target');
+    tourTargetEl = target;
+    target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+  }
+  positionTourSpotlight(target, step.position);
+  positionTourTooltip(target, step.position);
+}
+
+function positionTourSpotlight(target, position) {
+  const overlay = document.getElementById('tour-overlay');
+  const spotlight = document.querySelector('.tour-spotlight');
+  if (!target) {
+    overlay.style.setProperty('--spot-x', '50%');
+    overlay.style.setProperty('--spot-y', '50%');
+    overlay.style.setProperty('--spot-radius', '0px');
+    spotlight.style.opacity = '0';
+    spotlight.classList.remove('active');
+    spotlight.style.display = 'none';
+    return;
+  }
+  const rect = target.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const radius = Math.max(rect.width, rect.height) / 2 + 12;
+  overlay.style.setProperty('--spot-x', `${cx}px`);
+  overlay.style.setProperty('--spot-y', `${cy}px`);
+  overlay.style.setProperty('--spot-radius', `${radius}px`);
+
+  spotlight.style.display = 'block';
+  spotlight.style.width = `${rect.width + 24}px`;
+  spotlight.style.height = `${rect.height + 24}px`;
+  spotlight.style.left = `${rect.left - 12}px`;
+  spotlight.style.top = `${rect.top - 12}px`;
+  spotlight.classList.add('active');
+}
+
+function positionTourTooltip(target, position) {
+  const tooltip = document.getElementById('tour-tooltip');
+  const margin = 16;
+  let rect;
+  if (target) rect = target.getBoundingClientRect();
+  else rect = { left: window.innerWidth / 2 - 60, top: window.innerHeight / 2 - 40, width: 120, height: 80 };
+  const tpRect = tooltip.getBoundingClientRect();
+  let top, left;
+
+  if (position === 'right') {
+    left = rect.right + margin;
+    top = rect.top + (rect.height - tpRect.height) / 2;
+    if (left + tpRect.width > window.innerWidth - margin) {
+      left = rect.left - tpRect.width - margin;
+      position = 'left';
+    }
+  } else if (position === 'left') {
+    left = rect.left - tpRect.width - margin;
+    top = rect.top + (rect.height - tpRect.height) / 2;
+    if (left < margin) { left = rect.right + margin; position = 'right'; }
+  } else if (position === 'bottom') {
+    left = rect.left + (rect.width - tpRect.width) / 2;
+    top = rect.bottom + margin;
+    if (left + tpRect.width > window.innerWidth - margin) left = window.innerWidth - tpRect.width - margin;
+    if (left < margin) left = margin;
+    if (top + tpRect.height > window.innerHeight - margin) { top = rect.top - tpRect.height - margin; position = 'top'; }
+  } else if (position === 'top') {
+    left = rect.left + (rect.width - tpRect.width) / 2;
+    top = rect.top - tpRect.height - margin;
+    if (left + tpRect.width > window.innerWidth - margin) left = window.innerWidth - tpRect.width - margin;
+    if (left < margin) left = margin;
+    if (top < margin) { top = rect.bottom + margin; position = 'bottom'; }
+  } else {
+    left = (window.innerWidth - tpRect.width) / 2;
+    top = (window.innerHeight - tpRect.height) / 2;
+  }
+
+  tooltip.style.left = `${Math.max(margin, left)}px`;
+  tooltip.style.top = `${Math.max(margin, top)}px`;
+  tooltip.setAttribute('data-pos', position);
+}
+
 function initMain() {
   initNavigation();
   initCalendar();
@@ -2824,6 +3005,7 @@ function initMain() {
   initPeek();
   switchView('dashboard');
   initLiquidEffects();
+  initTour();
 }
 
 async function boot() {
