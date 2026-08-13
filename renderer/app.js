@@ -465,8 +465,8 @@ function buildDetailTaskItem(task, date, idx) {
   if (badge) {
     badge.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (badge.dataset.pid) openProject(badge.dataset.pid);
-      if (badge.dataset.sid) openSpreadsheet(badge.dataset.sid);
+      if (badge.dataset.pid) openProjectPeek(badge.dataset.pid);
+      if (badge.dataset.sid) openSpreadsheet(badge.dataset.sid, true);
     });
   }
   return li;
@@ -1484,6 +1484,7 @@ function deleteProject(pid) {
   renderCalendar();
   renderDashboard();
   refreshDashboardDetail();
+  refreshPeek();
 }
 
 function toggleProjectCompleted(pid) {
@@ -1506,6 +1507,7 @@ function toggleProjectCompleted(pid) {
   renderCalendar();
   renderDashboard();
   refreshDashboardDetail();
+  refreshPeek();
 }
 
 function addStep(pid, textInput, dateInput) {
@@ -1525,6 +1527,7 @@ function addStep(pid, textInput, dateInput) {
   renderCalendar();
   renderDashboard();
   refreshDashboardDetail();
+  refreshPeek();
 }
 
 function toggleStep(pid, sid) {
@@ -1547,6 +1550,7 @@ function toggleStep(pid, sid) {
   renderDashboard();
   renderProjects();
   refreshDashboardDetail();
+  refreshPeek();
 }
 
 function deleteStep(pid, sid) {
@@ -1564,6 +1568,7 @@ function deleteStep(pid, sid) {
   renderCalendar();
   renderDashboard();
   refreshDashboardDetail();
+  refreshPeek();
 }
 
 function addProjectSpreadsheet(projectId, title) {
@@ -1575,7 +1580,8 @@ function addProjectSpreadsheet(projectId, title) {
   scheduleSave();
   renderProjects();
   renderSpreadsheets();
-  openSpreadsheet(sheet.id);
+  refreshPeek();
+  openSpreadsheet(sheet.id, true);
 }
 
 function buildProjectCard(project, cardClass = 'project-card glass-card tilt-card') {
@@ -1648,7 +1654,7 @@ function buildProjectCard(project, cardClass = 'project-card glass-card tilt-car
       const li = document.createElement('li');
       li.className = 'project-sheet-item';
       li.innerHTML = `<span class="project-sheet-name">${escapeHtml(sheet.title || 'Untitled Spreadsheet')}</span>`;
-      li.addEventListener('click', () => openSpreadsheet(sheet.id));
+      li.addEventListener('click', () => openSpreadsheet(sheet.id, true));
       sheetList.appendChild(li);
     });
   }
@@ -1675,21 +1681,43 @@ function renderProjects() {
   filtered.forEach(project => list.appendChild(buildProjectCard(project)));
 }
 
-function openProject(pid) {
+let currentPeekProjectId = null;
+
+function initPeek() {
+  document.getElementById('peek-close')?.addEventListener('click', closePeek);
+  document.getElementById('peek-overlay')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('peek-overlay')) closePeek();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.getElementById('peek-overlay').classList.contains('open')) closePeek();
+  });
+}
+
+function openProjectPeek(pid) {
   const project = appState.data.projects.find(p => p.id === pid);
   if (!project) return;
-  appState.projectMode = project.completed ? 'completed' : 'active';
-  const modeButtons = document.getElementById('projects-mode').querySelectorAll('button');
-  modeButtons.forEach(b => b.classList.toggle('active', b.dataset.mode === appState.projectMode));
-  switchView('projects');
-  setTimeout(() => {
-    const card = document.querySelector(`.project-card[data-id="${CSS.escape(pid)}"]`);
-    if (card) {
-      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      card.classList.add('project-highlight');
-      setTimeout(() => card.classList.remove('project-highlight'), 1500);
-    }
-  }, 60);
+  currentPeekProjectId = project.id;
+  closeSpreadsheet();
+  const overlay = document.getElementById('peek-overlay');
+  const title = document.getElementById('peek-title');
+  const body = document.getElementById('peek-body');
+  title.textContent = project.title || 'Project';
+  body.innerHTML = '';
+  body.appendChild(buildProjectCard(project, 'project-card glass-card'));
+  overlay.classList.add('open');
+}
+
+function closePeek() {
+  currentPeekProjectId = null;
+  document.getElementById('peek-overlay').classList.remove('open');
+  document.getElementById('peek-body').innerHTML = '';
+}
+
+function refreshPeek() {
+  if (!currentPeekProjectId) return;
+  const project = appState.data.projects.find(p => p.id === currentPeekProjectId);
+  if (!project) { closePeek(); return; }
+  openProjectPeek(project.id);
 }
 
 /* Notes / Brainstorm */
@@ -2553,14 +2581,15 @@ function renderSpreadsheets() {
     delBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteSpreadsheet(sheet.id); });
     const projBadge = tile.querySelector('.spreadsheet-tile-badge');
     if (projBadge) {
-      projBadge.addEventListener('click', (e) => { e.stopPropagation(); openProject(projBadge.dataset.pid); });
+      projBadge.addEventListener('click', (e) => { e.stopPropagation(); openProjectPeek(projBadge.dataset.pid); });
     }
     grid.appendChild(tile);
   });
 }
 
-function openSpreadsheet(id) {
-  switchView('spreadsheets');
+function openSpreadsheet(id, inPlace = false) {
+  if (!inPlace) switchView('spreadsheets');
+  else closePeek();
   const sheet = appState.data.spreadsheets.find(s => s.id === id);
   if (!sheet) return;
   activeSheet = sheet;
@@ -2751,6 +2780,7 @@ function initMain() {
   initNotesOverlay();
   initReports();
   initSpreadsheets();
+  initPeek();
   switchView('dashboard');
   initLiquidEffects();
 }

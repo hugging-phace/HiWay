@@ -265,24 +265,6 @@
             </div>
             <div id="spreadsheets-grid" class="spreadsheets-grid"></div>
           </div>
-          <div id="spreadsheet-detail" class="spreadsheet-detail">
-            <div class="spreadsheet-card glass-card">
-              <header class="spreadsheet-header">
-                <input type="text" id="sheet-title-input" class="glass-input" placeholder="Spreadsheet title">
-                <div class="spreadsheet-actions">
-                  <button id="sheet-export" class="secondary-btn">Export</button>
-                  <button id="sheet-close" class="detail-close" aria-label="Close">×</button>
-                </div>
-              </header>
-              <div class="spreadsheet-size-controls">
-                <button class="secondary-btn" id="sheet-cols-narrow" title="Narrower columns">Cols −</button>
-                <button class="secondary-btn" id="sheet-cols-wide" title="Wider columns">Cols +</button>
-                <button class="secondary-btn" id="sheet-rows-short" title="Shorter rows">Rows −</button>
-                <button class="secondary-btn" id="sheet-rows-tall" title="Wider rows">Rows +</button>
-              </div>
-              <div id="sheet-container" class="sheet-container"></div>
-            </div>
-          </div>
         </div>
 
         <!-- Deferred -->
@@ -329,6 +311,37 @@
         <button id="notes-save" class="primary-btn liquid-btn">Add notes</button>
         <button id="notes-skip" class="secondary-btn" style="display:none">Skip</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Spreadsheet detail overlay (app-level, can open from any view) -->
+  <div id="spreadsheet-detail" class="spreadsheet-detail">
+    <div class="spreadsheet-card glass-card">
+      <header class="spreadsheet-header">
+        <input type="text" id="sheet-title-input" class="glass-input" placeholder="Spreadsheet title">
+        <div class="spreadsheet-actions">
+          <button id="sheet-export" class="secondary-btn">Export</button>
+          <button id="sheet-close" class="detail-close" aria-label="Close">×</button>
+        </div>
+      </header>
+      <div class="spreadsheet-size-controls">
+        <button class="secondary-btn" id="sheet-cols-narrow" title="Narrower columns">Cols −</button>
+        <button class="secondary-btn" id="sheet-cols-wide" title="Wider columns">Cols +</button>
+        <button class="secondary-btn" id="sheet-rows-short" title="Shorter rows">Rows −</button>
+        <button class="secondary-btn" id="sheet-rows-tall" title="Wider rows">Rows +</button>
+      </div>
+      <div id="sheet-container" class="sheet-container"></div>
+    </div>
+  </div>
+
+  <!-- Peek overlay for in-place project/spreadsheet previews -->
+  <div id="peek-overlay" class="peek-overlay">
+    <div class="peek-card glass-card">
+      <header class="peek-header">
+        <h2 id="peek-title"></h2>
+        <button id="peek-close" class="detail-close" aria-label="Close">×</button>
+      </header>
+      <div id="peek-body" class="peek-body"></div>
     </div>
   </div>
 
