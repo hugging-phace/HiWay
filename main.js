@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
+app.setPath('userData', path.join(app.getPath('appData'), 'hiway'));
 const userDataPath = app.getPath('userData');
 const dataDir = path.join(userDataPath, 'hiway-data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
@@ -32,6 +33,7 @@ function createWindow() {
     height: Math.min(900, height - 100),
     minWidth: 1000,
     minHeight: 700,
+    title: 'Onward',
     titleBarStyle: process.platform === 'darwin' ? 'hidden' : 'default',
     trafficLightPosition: process.platform === 'darwin' ? { x: 16, y: 16 } : undefined,
     transparent: false,

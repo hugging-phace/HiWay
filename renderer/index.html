@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HiWay</title>
+  <title>Onward</title>
   <link rel="stylesheet" href="styles.css">
   <script src="../node_modules/chart.js/dist/chart.umd.js"></script>
 </head>
@@ -13,8 +13,8 @@
     <section id="auth-screen" class="screen active">
       <div class="auth-card glass-card">
         <div class="auth-brand">
-          <img src="assets/logo.png" class="brand-logo" alt="HiWay" draggable="false">
-          <h1>HiWay</h1>
+          <img src="assets/logo.svg" class="brand-logo" alt="Onward" draggable="false">
+          <h1>Onward</h1>
           <p>Plan <span class="dot">•</span> Track <span class="dot">•</span> Move</p>
         </div>
         <div id="auth-toggle" class="segmented-control">
@@ -31,7 +31,7 @@
           <div class="input-wrap" id="confirm-wrap" style="display:none;">
             <input type="password" id="auth-confirm" placeholder="Confirm Password">
           </div>
-          <button type="submit" class="primary-btn liquid-btn">Enter HiWay</button>
+          <button type="submit" class="primary-btn liquid-btn">Enter Onward</button>
           <p id="auth-error" class="error-text"></p>
         </form>
       </div>
@@ -39,11 +39,11 @@
 
     <!-- Main app -->
     <section id="main-screen" class="screen">
-      <header class="titlebar mac-only" aria-hidden="true">HiWay</header>
+      <header class="titlebar mac-only" aria-hidden="true">Onward</header>
       <aside class="sidebar glass-panel">
         <div class="sidebar-brand">
-          <img src="assets/logo.png" class="brand-logo-sm" alt="HiWay" draggable="false">
-          <span>HiWay</span>
+          <img src="assets/logo.svg" class="brand-logo-sm" alt="Onward" draggable="false">
+          <span>Onward</span>
         </div>
         <nav class="nav">
           <button data-view="dashboard" class="nav-item active">
@@ -81,21 +81,25 @@
         <div id="view-dashboard" class="view active">
           <div class="dashboard-grid">
             <div class="tile glass-card kpi-tile kpi-week" data-type="week">
+              <button class="kpi-add" aria-label="Add">+</button>
               <h3>Completed this Week</h3>
               <span class="kpi-value" id="kpi-week"><span id="kpi-week-done">0</span>/<span id="kpi-week-total">0</span></span>
               <span class="kpi-sub">scheduled</span>
             </div>
-            <div class="tile glass-card kpi-tile kpi-month" data-type="month">
-              <h3>Upcoming This Month</h3>
-              <span class="kpi-value" id="kpi-month">0</span>
-              <span class="kpi-sub" id="kpi-month-sub">ahead of schedule</span>
+            <div class="tile glass-card kpi-tile kpi-upcoming" data-type="upcoming">
+              <button class="kpi-add" aria-label="Add">+</button>
+              <h3>Upcoming</h3>
+              <span class="kpi-value" id="kpi-upcoming">0</span>
+              <span class="kpi-sub" id="kpi-upcoming-sub">all caught up</span>
             </div>
             <div class="tile glass-card kpi-tile kpi-rollover" data-type="rollover">
+              <button class="kpi-add" aria-label="Add">+</button>
               <h3>Rollover Rate</h3>
               <span class="kpi-value" id="kpi-rollover">0%</span>
               <span class="kpi-sub" id="kpi-rollover-label">on track</span>
             </div>
             <div class="tile glass-card kpi-tile kpi-projects" data-type="projects">
+              <button class="kpi-add" aria-label="Add">+</button>
               <h3>Projects</h3>
               <span class="kpi-value" id="kpi-projects">0</span>
               <span class="kpi-sub" id="kpi-projects-sub">active</span>

@@ -1,7 +1,7 @@
 {
   "name": "hiway",
-  "version": "1.0.2",
-  "description": "HiWay - futuristic task and productivity manager for Mac and Windows",
+  "version": "1.0.3",
+  "description": "Onward - futuristic task and productivity manager for Mac and Windows",
   "main": "main.js",
   "author": "hugging-phace",
   "scripts": {
@@ -12,7 +12,7 @@
   },
   "build": {
     "appId": "com.hiway.app",
-    "productName": "HiWay",
+    "productName": "Onward",
     "icon": "build/icon.png",
     "directories": {
       "output": "dist"

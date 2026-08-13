@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HiWay Test</title>
+  <title>Onward Test</title>
   <link rel="stylesheet" href="styles.css">
   <script src="../node_modules/chart.js/dist/chart.umd.js"></script>
 </head>
@@ -12,8 +12,8 @@
     <section id="auth-screen" class="screen active">
       <div class="auth-card glass-card">
         <div class="auth-brand">
-          <div class="brand-orb"></div>
-          <h1>HiWay</h1>
+          <img src="assets/logo.svg" class="brand-logo" alt="Onward" draggable="false">
+          <h1>Onward</h1>
           <p>Your productivity, amplified.</p>
         </div>
         <div id="auth-toggle" class="segmented-control">
@@ -24,7 +24,7 @@
           <div class="input-wrap"><input type="text" id="auth-username" placeholder="Username" required></div>
           <div class="input-wrap"><input type="password" id="auth-password" placeholder="Password" required></div>
           <div class="input-wrap" id="confirm-wrap" style="display:none;"><input type="password" id="auth-confirm" placeholder="Confirm Password"></div>
-          <button type="submit" class="primary-btn liquid-btn">Enter HiWay</button>
+          <button type="submit" class="primary-btn liquid-btn">Enter Onward</button>
           <p id="auth-error" class="error-text"></p>
         </form>
       </div>
@@ -32,7 +32,7 @@
 
     <section id="main-screen" class="screen">
       <aside class="sidebar glass-panel">
-        <div class="sidebar-brand"><div class="brand-orb"></div><span>HiWay</span></div>
+        <div class="sidebar-brand"><img src="assets/logo.svg" class="brand-logo-sm" alt="Onward" draggable="false"><span>Onward</span></div>
         <nav class="nav">
           <button data-view="dashboard" class="nav-item active"><span class="nav-icon">◈</span><span class="nav-label">Dashboard</span></button>
           <button data-view="calendar" class="nav-item"><span class="nav-icon">◴</span><span class="nav-label">Calendar</span></button>

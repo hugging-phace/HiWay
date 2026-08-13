@@ -1,4 +1,4 @@
-/* HiWay - app logic */
+/* Onward - app logic */
 
 const appState = {
   user: null,
@@ -14,7 +14,7 @@ const appState = {
   currentView: 'dashboard',
   calDate: new Date(),
   calMode: 'month',
-  selectedDate: new Date().toISOString().split('T')[0],
+  selectedDate: dateKey(new Date()),
   selectedBrainstormDay: null,
   selectedBrainstormNoteId: null,
   charts: {},
@@ -39,10 +39,21 @@ function uuid() {
 }
 
 function dateKey(date) {
-  return new Date(date).toISOString().split('T')[0];
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    date = date + 'T00:00:00';
+  }
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return date;
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function getNextDay(date) {
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    date = date + 'T00:00:00';
+  }
   const d = new Date(date);
   d.setDate(d.getDate() + 1);
   return dateKey(d);
@@ -51,6 +62,10 @@ function getNextDay(date) {
 function initTheme() {
   const savedTheme = appState.data.theme || 'dark';
   document.documentElement.setAttribute('data-theme', savedTheme);
+  if (typeof Chart !== 'undefined') {
+    const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text').trim();
+    Chart.defaults.color = textColor;
+  }
 }
 
 function initPlatform() {
@@ -66,6 +81,10 @@ function toggleTheme() {
   document.documentElement.setAttribute('data-theme', next);
   appState.data.theme = next;
   scheduleSave();
+  if (typeof Chart !== 'undefined') {
+    const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text').trim();
+    Chart.defaults.color = textColor;
+  }
   updateCharts();
 }
 
@@ -213,16 +232,11 @@ function getRecentWins(limit = 5) {
   return wins.slice(0, limit);
 }
 
-function getMonthUpcomingCount() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const today = dateKey(now);
+function getUpcomingCount() {
+  const today = dateKey(new Date());
   let count = 0;
   Object.entries(appState.data.tasks).forEach(([date, tasks]) => {
-    if (date < today) return;
-    const d = new Date(date);
-    if (d.getFullYear() !== year || d.getMonth() !== month) return;
+    if (date <= today) return;
     count += tasks.filter(t => !t.done).length;
   });
   return count;
@@ -247,15 +261,15 @@ function renderDashboard() {
   const thisWeekStart = getWeekStart(new Date());
   const weekDone = countTasksDone(thisWeekStart);
   const weekTotal = countTasksTotal(thisWeekStart);
-  const monthUpcoming = getMonthUpcomingCount();
+  const upcomingCount = getUpcomingCount();
   const { overdue, rate: rolloverRate } = getRolloverStats();
   const projects = appState.data.projects.length;
   const openSteps = getOpenProjectSteps();
 
   document.getElementById('kpi-week-done').textContent = weekDone;
   document.getElementById('kpi-week-total').textContent = weekTotal;
-  document.getElementById('kpi-month').textContent = monthUpcoming;
-  document.getElementById('kpi-month-sub').textContent = monthUpcoming ? 'Get ahead of your tasks' : 'all caught up';
+  document.getElementById('kpi-upcoming').textContent = upcomingCount;
+  document.getElementById('kpi-upcoming-sub').textContent = upcomingCount ? 'Get ahead of your tasks' : 'all caught up';
 
   const rolloverEl = document.getElementById('kpi-rollover');
   const rolloverLabel = document.getElementById('kpi-rollover-label');
@@ -297,6 +311,13 @@ function renderDashboard() {
 function initDashboard() {
   document.querySelectorAll('.kpi-tile').forEach(tile => {
     tile.addEventListener('click', () => openDashboardDetail(tile.dataset.type));
+    const addBtn = tile.querySelector('.kpi-add');
+    if (addBtn) {
+      addBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        openDashboardDetail(tile.dataset.type);
+      });
+    }
   });
   document.getElementById('detail-close').addEventListener('click', closeDashboardDetail);
   const detail = document.getElementById('dashboard-detail');
@@ -356,8 +377,9 @@ function openDeleteModalForDate(date, idx) {
 
 function addDetailTask(date, text) {
   if (!text) return;
-  if (!appState.data.tasks[date]) appState.data.tasks[date] = [];
-  appState.data.tasks[date].push({ text, done: false, id: uuid() });
+  const key = dateKey(date);
+  if (!appState.data.tasks[key]) appState.data.tasks[key] = [];
+  appState.data.tasks[key].push({ text, done: false, id: uuid() });
   scheduleSave();
   renderCalendar();
   renderDashboard();
@@ -420,45 +442,37 @@ function renderDashboardDetail(type) {
     });
   }
 
-  if (type === 'month') {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
+  if (type === 'upcoming') {
     const upcoming = [];
     Object.entries(appState.data.tasks).forEach(([date, tasks]) => {
-      if (date < today) return;
-      const d = new Date(date);
-      if (d.getFullYear() !== year || d.getMonth() !== month) return;
+      if (date <= today) return;
       tasks.forEach((task, idx) => { if (!task.done) upcoming.push({ date, task, idx }); });
     });
     upcoming.sort((a, b) => a.date.localeCompare(b.date));
-    titleEl.textContent = 'Upcoming This Month';
+    titleEl.textContent = 'Upcoming';
     valueEl.textContent = upcoming.length;
     subtitleEl.textContent = upcoming.length ? 'Get ahead of your tasks' : 'all caught up';
     if (!upcoming.length) {
-      bodyEl.innerHTML = '<div class="detail-empty">No upcoming tasks this month. You are all caught up.</div>';
+      bodyEl.innerHTML = '<div class="detail-empty">No upcoming tasks. You are all caught up.</div>';
     } else {
       let lastDate = null;
       upcoming.forEach(({ date, task, idx }) => {
         if (date !== lastDate) {
           const group = document.createElement('div');
           group.className = 'detail-date-group';
-          const d = new Date(date);
-          group.textContent = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + (date === today ? ' • Today' : '');
+          const d = new Date(date + 'T00:00:00');
+          group.textContent = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
           bodyEl.appendChild(group);
           lastDate = date;
         }
         bodyEl.appendChild(buildDetailTaskItem(task, date, idx));
       });
     }
-    const min = dateKey(firstDay);
-    const max = dateKey(lastDay);
+    const min = getNextDay(today);
     addEl.innerHTML = `
       <form class="detail-add-form">
-        <input type="text" placeholder="Add a task for this month..." required>
-        <input type="date" value="${today}" min="${min}" max="${max}" required>
+        <input type="text" placeholder="Add an upcoming task..." required>
+        <input type="date" value="${min}" min="${min}" required>
         <button type="submit">Add</button>
       </form>
     `;
@@ -467,7 +481,7 @@ function renderDashboardDetail(type) {
       e.preventDefault();
       const text = form.querySelector('input[type="text"]').value.trim();
       const date = form.querySelector('input[type="date"]').value;
-      if (text && date) { addDetailTask(date, text); form.reset(); form.querySelector('input[type="date"]').value = today; }
+      if (text && date) { addDetailTask(date, text); form.reset(); form.querySelector('input[type="date"]').value = min; }
     });
   }
 
@@ -651,6 +665,8 @@ function updateCharts() {
       data: { labels: [], datasets: [] },
       options: getChartOptions()
     });
+  } else {
+    Object.assign(appState.charts.activity.options, getChartOptions());
   }
   if (!appState.charts.distribution) {
     appState.charts.distribution = new Chart(document.getElementById('distribution-chart').getContext('2d'), {
@@ -658,6 +674,8 @@ function updateCharts() {
       data: { labels: [], datasets: [] },
       options: getChartOptions(false)
     });
+  } else {
+    Object.assign(appState.charts.distribution.options, getChartOptions(false));
   }
   if (!appState.charts.velocity) {
     appState.charts.velocity = new Chart(document.getElementById('velocity-chart').getContext('2d'), {
@@ -665,6 +683,8 @@ function updateCharts() {
       data: { labels: [], datasets: [] },
       options: getChartOptions()
     });
+  } else {
+    Object.assign(appState.charts.velocity.options, getChartOptions());
   }
 
   const allTasks = getAllTasks();
@@ -716,7 +736,7 @@ function updateCharts() {
 
 function getChartOptions(showScales = true) {
   const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text').trim();
-  const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--border').trim();
+  const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim();
   return {
     responsive: true,
     maintainAspectRatio: false,
@@ -727,12 +747,14 @@ function getChartOptions(showScales = true) {
         padding: 12,
         cornerRadius: 10,
         titleFont: { size: 13 },
-        bodyFont: { size: 13 }
+        bodyFont: { size: 13 },
+        titleColor: '#e8eaf6',
+        bodyColor: '#e8eaf6'
       }
     },
     scales: showScales ? {
-      x: { grid: { color: gridColor }, ticks: { color: textColor } },
-      y: { grid: { color: gridColor }, ticks: { color: textColor, beginAtZero: true, precision: 0 } }
+      x: { grid: { color: gridColor, drawBorder: false }, ticks: { color: textColor, maxRotation: 0 } },
+      y: { grid: { color: gridColor, drawBorder: false }, ticks: { color: textColor, beginAtZero: true, precision: 0 }, min: 0 }
     } : {}
   };
 }
@@ -1099,8 +1121,9 @@ function renderDeferred() {
 function restoreDeferredItem(idx, targetDate) {
   const items = appState.deferredMode === 'postponed' ? appState.data.postponed : appState.data.trash;
   const item = items[idx];
-  if (!appState.data.tasks[targetDate]) appState.data.tasks[targetDate] = [];
-  appState.data.tasks[targetDate].push({ text: item.text, done: false, id: uuid() });
+  const key = dateKey(targetDate);
+  if (!appState.data.tasks[key]) appState.data.tasks[key] = [];
+  appState.data.tasks[key].push({ text: item.text, done: false, id: uuid() });
   items.splice(idx, 1);
   scheduleSave();
   renderDeferred();

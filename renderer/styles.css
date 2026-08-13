@@ -574,6 +574,7 @@ html[data-theme="light"] .segmented-control button:hover {
 }
 
 .kpi-tile {
+  position: relative;
   cursor: pointer;
   user-select: none;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
@@ -582,6 +583,31 @@ html[data-theme="light"] .segmented-control button:hover {
 .kpi-tile:hover {
   transform: translateY(-4px) scale(1.01);
   border-color: rgba(99, 102, 241, 0.45);
+}
+
+.kpi-add {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, transform 0.15s ease;
+  z-index: 2;
+}
+
+.kpi-add:hover {
+  background: rgba(99, 102, 241, 0.45);
+  transform: scale(1.1);
 }
 
 .dashboard-detail {
@@ -1955,11 +1981,10 @@ html[data-theme="light"] .project-step {
   backface-visibility: hidden;
 }
 
-/* Waypoint branding */
+/* Onward branding */
 .brand-logo {
-  width: 88px;
-  height: 88px;
-  border-radius: 26px;
+  width: 80px;
+  height: 80px;
   margin: 0 auto;
   display: block;
   object-fit: contain;
@@ -1968,9 +1993,8 @@ html[data-theme="light"] .project-step {
 }
 
 .brand-logo-sm {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 34px;
+  height: 34px;
   object-fit: contain;
   filter: drop-shadow(0 2px 8px rgba(99, 102, 241, 0.3));
 }
