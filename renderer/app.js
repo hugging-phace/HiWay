@@ -1164,6 +1164,7 @@ function completeTask(idx) {
   renderDashboard();
   renderProjects();
   refreshDashboardDetail();
+  refreshPeek();
   openTaskNotes(appState.selectedDate, tasks.length - 1, true);
 }
 
@@ -1182,6 +1183,7 @@ function undoTask(idx) {
   renderDashboard();
   renderProjects();
   refreshDashboardDetail();
+  refreshPeek();
 }
 
 function findTaskByIdWithDate(id) {
@@ -1272,6 +1274,7 @@ function openDeleteModal(idx) {
       renderProjects();
       if (appState.currentView === 'deferred') renderDeferred();
       refreshDashboardDetail();
+      refreshPeek();
     }
   );
 }
@@ -1330,6 +1333,7 @@ function openPostponeModal(idx) {
     renderProjects();
     if (appState.currentView === 'deferred') renderDeferred();
     refreshDashboardDetail();
+    refreshPeek();
   };
 
   document.getElementById('opt-tomorrow').addEventListener('click', () => closeAndMove(tomorrow, 'date'));
@@ -1627,12 +1631,28 @@ function buildProjectCard(project, cardClass = 'project-card glass-card tilt-car
   project.steps.forEach(step => {
     const li = document.createElement('li');
     li.className = 'project-step' + (step.done ? ' done' : '');
-    li.innerHTML = `
-      <div class="task-check">${step.done ? '✓' : ''}</div>
-      <span class="step-text">${escapeHtml(step.text)}</span>
-      <span class="step-date">${step.date ? formatShortDate(step.date) : ''}</span>
-    `;
-    li.addEventListener('click', () => toggleStep(project.id, step.id));
+    const found = findTaskByIdWithDate(step.id);
+    if (found) {
+      const { task, date, idx } = found;
+      li.innerHTML = `
+        <span class="step-footprint" aria-hidden="true">●</span>
+        <span class="step-text">${escapeHtml(step.text)}</span>
+        <span class="step-date">${step.date ? formatShortDate(step.date) : ''}</span>
+        ${buildTaskActions(task, date, idx)}
+      `;
+      bindTaskActionButtons(li, task, date, idx);
+      li.querySelectorAll('.task-actions, .completed-actions').forEach(el => {
+        el.addEventListener('click', e => e.stopPropagation());
+      });
+      li.addEventListener('click', () => toggleStep(project.id, step.id));
+    } else {
+      li.innerHTML = `
+        <span class="step-footprint" aria-hidden="true">●</span>
+        <span class="step-text">${escapeHtml(step.text)}</span>
+        <span class="step-date">${step.date ? formatShortDate(step.date) : ''}</span>
+      `;
+      li.addEventListener('click', () => toggleStep(project.id, step.id));
+    }
     stepsUl.appendChild(li);
   });
 
@@ -1653,8 +1673,15 @@ function buildProjectCard(project, cardClass = 'project-card glass-card tilt-car
     projectSheets.forEach(sheet => {
       const li = document.createElement('li');
       li.className = 'project-sheet-item';
-      li.innerHTML = `<span class="project-sheet-name">${escapeHtml(sheet.title || 'Untitled Spreadsheet')}</span>`;
-      li.addEventListener('click', () => openSpreadsheet(sheet.id, true));
+      li.innerHTML = `
+        <span class="sheet-dot" aria-hidden="true">●</span>
+        <span class="project-sheet-name">${escapeHtml(sheet.title || 'Untitled Spreadsheet')}</span>
+        <button class="project-sheet-delete" title="Delete spreadsheet">×</button>
+      `;
+      const name = li.querySelector('.project-sheet-name');
+      const del = li.querySelector('.project-sheet-delete');
+      if (name) name.addEventListener('click', () => openSpreadsheet(sheet.id, true));
+      if (del) del.addEventListener('click', e => { e.stopPropagation(); deleteSpreadsheet(sheet.id); });
       sheetList.appendChild(li);
     });
   }
@@ -2083,7 +2110,9 @@ function saveTaskNotes() {
   scheduleSave();
   renderCalendar();
   renderDashboard();
+  renderProjects();
   refreshDashboardDetail();
+  refreshPeek();
   closeNotesOverlay();
 }
 
@@ -2512,18 +2541,28 @@ async function exportSpreadsheet() {
 }
 
 function initSpreadsheets() {
+  const taskToggle = document.getElementById('new-sheet-task');
+  const taskDate = document.getElementById('new-sheet-task-date');
+  if (taskDate) {
+    taskDate.value = dateKey(new Date());
+    taskDate.disabled = !taskToggle.checked;
+    taskToggle.addEventListener('change', () => { taskDate.disabled = !taskToggle.checked; });
+  }
   document.getElementById('new-sheet-btn').addEventListener('click', () => {
     const input = document.getElementById('new-sheet-title');
-    const taskToggle = document.getElementById('new-sheet-task');
     const title = input.value.trim();
     const sheet = createSpreadsheetData();
     if (title) sheet.title = title;
     appState.data.spreadsheets.push(sheet);
     if (taskToggle && taskToggle.checked) {
-      const key = dateKey(new Date());
+      const key = taskDate && taskDate.value ? taskDate.value : dateKey(new Date());
       if (!appState.data.tasks[key]) appState.data.tasks[key] = [];
       appState.data.tasks[key].push(createTask(`Spreadsheet: ${sheet.title}`, key, '', key, null, null, false, null, sheet.id));
       taskToggle.checked = false;
+      if (taskDate) {
+        taskDate.value = dateKey(new Date());
+        taskDate.disabled = true;
+      }
     }
     scheduleSave();
     renderSpreadsheets();
@@ -2621,9 +2660,11 @@ function deleteSpreadsheet(sid) {
   if (activeSheet && activeSheet.id === sid) closeSpreadsheet();
   scheduleSave();
   renderSpreadsheets();
+  renderProjects();
   renderDashboard();
   renderCalendar();
   refreshDashboardDetail();
+  refreshPeek();
 }
 
 function findTaskBySpreadsheetId(sid) {
