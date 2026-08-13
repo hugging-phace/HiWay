@@ -83,11 +83,11 @@
         <!-- Dashboard -->
         <div id="view-dashboard" class="view active">
           <div class="dashboard-grid">
-            <div class="tile glass-card kpi-tile kpi-week" data-type="week">
+            <div class="tile glass-card kpi-tile kpi-today" data-type="today">
               <button class="kpi-add" aria-label="Add">+</button>
-              <h3>Completed this Week</h3>
-              <span class="kpi-value" id="kpi-week"><span id="kpi-week-done">0</span>/<span id="kpi-week-total">0</span></span>
-              <span class="kpi-sub">scheduled</span>
+              <h3>Today</h3>
+              <span class="kpi-value" id="kpi-today"><span id="kpi-today-done">0</span>/<span id="kpi-today-total">0</span></span>
+              <span class="kpi-sub" id="kpi-today-sub">scheduled</span>
             </div>
             <div class="tile glass-card kpi-tile kpi-upcoming" data-type="upcoming">
               <button class="kpi-add" aria-label="Add">+</button>
@@ -95,19 +95,18 @@
               <span class="kpi-value" id="kpi-upcoming">0</span>
               <span class="kpi-sub" id="kpi-upcoming-sub">all caught up</span>
             </div>
-            <div class="tile glass-card kpi-tile kpi-rollover" data-type="rollover">
-              <button class="kpi-add" aria-label="Add">+</button>
-              <h3>Rollover Rate</h3>
-              <span class="kpi-value" id="kpi-rollover">0%</span>
-              <span class="kpi-sub" id="kpi-rollover-label">on track</span>
-            </div>
             <div class="tile glass-card kpi-tile kpi-projects" data-type="projects">
               <button class="kpi-add" aria-label="Add">+</button>
               <h3>Projects</h3>
               <span class="kpi-value" id="kpi-projects">0</span>
               <span class="kpi-sub" id="kpi-projects-sub">active</span>
             </div>
-            <div class="tile glass-card full waypoint-tracker">
+            <div class="tile glass-card kpi-tile kpi-rollover" data-type="rollover">
+              <h3>Rollover Rate</h3>
+              <span class="kpi-value" id="kpi-rollover">0%</span>
+              <span class="kpi-sub" id="kpi-rollover-label">on track</span>
+            </div>
+            <div class="tile glass-card full waypoint-tracker kpi-tile" data-type="week">
               <div class="waypoint-header">
                 <h3>This Week</h3>
                 <span id="waypoint-sub">Always moving forward.</span>
@@ -163,13 +162,16 @@
                 <h3 id="cal-label">August 2026</h3>
                 <button id="cal-next" class="icon-btn">›</button>
               </div>
+              <div class="cal-extras">
+                <input type="text" id="cal-search" class="glass-input" placeholder="Search tasks...">
+                <button id="share-day-btn" class="share-day-btn">Share day</button>
+              </div>
             </div>
             <div id="calendar-body" class="calendar-body"></div>
           </div>
           <div class="task-panel glass-card">
             <div class="task-panel-header">
               <h3 id="selected-date-label">Select a date</h3>
-              <button id="share-day-btn" class="icon-btn" title="Share today's list" style="display:none">↗</button>
             </div>
             <div class="task-input-row">
               <input type="text" id="new-task-input" placeholder="Add a task for this date...">
@@ -184,6 +186,10 @@
           <div class="projects-header">
             <input type="text" id="new-project-input" placeholder="New project or big idea..." class="glass-input">
             <button id="add-project-btn" class="primary-btn liquid-btn">Create Project</button>
+          </div>
+          <div class="projects-mode" id="projects-mode">
+            <button data-mode="active" class="active">Active</button>
+            <button data-mode="completed">Completed</button>
           </div>
           <div id="projects-list" class="projects-list"></div>
         </div>
@@ -277,11 +283,16 @@
   <div id="notes-overlay" class="notes-overlay">
     <div class="notes-card glass-card">
       <header class="notes-header">
-        <h3>Task Notes</h3>
+        <h3 id="notes-title">Task Notes</h3>
         <button id="notes-close" class="icon-btn" aria-label="Close">×</button>
       </header>
+      <div id="notes-existing" class="notes-existing" style="display:none"></div>
+      <p id="notes-prompt" class="notes-prompt" style="display:none">Add additional notes?</p>
       <textarea id="notes-text" class="glass-input" placeholder="Add details, links, or context..."></textarea>
-      <button id="notes-save" class="primary-btn liquid-btn">Save Notes</button>
+      <div class="notes-actions">
+        <button id="notes-save" class="primary-btn liquid-btn">Add notes</button>
+        <button id="notes-skip" class="secondary-btn" style="display:none">Skip</button>
+      </div>
     </div>
   </div>
 

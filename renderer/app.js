@@ -18,11 +18,14 @@ const appState = {
   selectedBrainstormDay: null,
   selectedBrainstormNoteId: null,
   charts: {},
-  deferredMode: 'postponed'
+  deferredMode: 'postponed',
+  projectMode: 'active',
+  searchQuery: ''
 };
 
 let saveTimeout;
 let dashboardDetailType = null;
+let dashboardDetailDate = null;
 let notesTarget = null;
 
 function scheduleSave() {
@@ -58,6 +61,31 @@ function getNextDay(date) {
   const d = new Date(date);
   d.setDate(d.getDate() + 1);
   return dateKey(d);
+}
+
+function formatShortDate(date) {
+  const key = dateKey(date);
+  const d = new Date(key + 'T00:00:00');
+  if (isNaN(d.getTime())) return key;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function createTask(text, date, notes = '', plantedDate = null, id = null, projectId = null, done = false, completedDate = null) {
+  return {
+    text,
+    done: !!done,
+    notes: notes || '',
+    plantedDate: plantedDate || dateKey(date),
+    completedDate: completedDate || null,
+    id: id || uuid(),
+    projectId: projectId || null
+  };
+}
+
+function matchesTask(task, query) {
+  if (!query) return true;
+  const q = query.toLowerCase();
+  return task.text.toLowerCase().includes(q) || (task.notes && task.notes.toLowerCase().includes(q));
 }
 
 function initTheme() {
@@ -244,32 +272,61 @@ function getUpcomingCount() {
   return count;
 }
 
-function getRolloverStats() {
+function autoRollover() {
   const today = dateKey(new Date());
-  let overdue = 0;
+  const moves = [];
+  Object.entries(appState.data.tasks).forEach(([date, tasks]) => {
+    if (date >= today) return;
+    for (let i = tasks.length - 1; i >= 0; i--) {
+      const task = tasks[i];
+      if (!task.done) moves.push({ from: date, idx: i, task });
+    }
+  });
+  moves.forEach(({ from, idx, task }) => {
+    appState.data.tasks[from].splice(idx, 1);
+    if (appState.data.tasks[from].length === 0) delete appState.data.tasks[from];
+    if (!appState.data.tasks[today]) appState.data.tasks[today] = [];
+    appState.data.tasks[today].push(task);
+    task.plantedDate = task.plantedDate || from;
+    updateProjectStepDate(task, today);
+  });
+  if (moves.length) scheduleSave();
+}
+
+function getRolloverStats() {
+  let rolled = 0;
   let total = 0;
   Object.entries(appState.data.tasks).forEach(([date, tasks]) => {
-    total += tasks.length;
-    if (date < today) overdue += tasks.filter(t => !t.done).length;
+    tasks.forEach(task => {
+      total++;
+      if (!task.done && task.plantedDate && task.plantedDate !== date) rolled++;
+    });
   });
-  return { overdue, rate: total ? Math.round((overdue / total) * 100) : 0 };
+  return { overdue: rolled, rate: total ? Math.round((rolled / total) * 100) : 0 };
 }
 
 function getOpenProjectSteps() {
   return appState.data.projects.reduce((sum, p) => sum + p.steps.filter(s => !s.done).length, 0);
 }
 
+function getTodayStats() {
+  const today = dateKey(new Date());
+  const tasks = appState.data.tasks[today] || [];
+  const done = tasks.filter(t => t.done).length;
+  const total = tasks.length;
+  return { today, done, total };
+}
+
 function renderDashboard() {
-  const thisWeekStart = getWeekStart(new Date());
-  const weekDone = countTasksDone(thisWeekStart);
-  const weekTotal = countTasksTotal(thisWeekStart);
+  const { today, done: todayDone, total: todayTotal } = getTodayStats();
   const upcomingCount = getUpcomingCount();
   const { overdue, rate: rolloverRate } = getRolloverStats();
-  const projects = appState.data.projects.length;
+  const projects = appState.data.projects.filter(p => !p.completed).length;
   const openSteps = getOpenProjectSteps();
 
-  document.getElementById('kpi-week-done').textContent = weekDone;
-  document.getElementById('kpi-week-total').textContent = weekTotal;
+  document.getElementById('kpi-today-done').textContent = todayDone;
+  document.getElementById('kpi-today-total').textContent = todayTotal;
+  document.getElementById('kpi-today-sub').textContent = todayTotal - todayDone ? `${todayTotal - todayDone} left today` : 'all done';
   document.getElementById('kpi-upcoming').textContent = upcomingCount;
   document.getElementById('kpi-upcoming-sub').textContent = upcomingCount ? 'Get ahead of your tasks' : 'all caught up';
 
@@ -329,26 +386,34 @@ function initDashboard() {
   });
 }
 
-function openDashboardDetail(type) {
+function openDashboardDetail(type, date = null) {
   dashboardDetailType = type;
-  renderDashboardDetail(type);
+  dashboardDetailDate = date;
+  renderDashboardDetail(type, date);
   document.getElementById('dashboard-detail').classList.add('open');
 }
 
 function closeDashboardDetail() {
   document.getElementById('dashboard-detail').classList.remove('open');
   dashboardDetailType = null;
+  dashboardDetailDate = null;
 }
 
 function refreshDashboardDetail() {
-  if (dashboardDetailType) renderDashboardDetail(dashboardDetailType);
+  if (dashboardDetailType) renderDashboardDetail(dashboardDetailType, dashboardDetailDate);
 }
 
-function buildDetailTaskItem(task, date, idx) {
-  const li = document.createElement('li');
-  li.className = 'task-item' + (task.done ? ' done' : '');
-  li.innerHTML = `
-    <span class="task-text">${escapeHtml(task.text)}</span>
+function buildTaskActions(task, date, idx) {
+  if (task.done) {
+    return `
+      <div class="task-actions completed-actions">
+        <span class="completed-badge">Completed</span>
+        <button class="notes-btn ${task.notes ? 'has-notes' : ''}" title="Notes">📝</button>
+        <button class="action-btn undo-btn" title="Undo">↩</button>
+      </div>
+    `;
+  }
+  return `
     <div class="task-actions">
       <button class="notes-btn ${task.notes ? 'has-notes' : ''}" title="Notes">📝</button>
       <button class="action-btn done-btn" title="Complete">✓</button>
@@ -356,16 +421,48 @@ function buildDetailTaskItem(task, date, idx) {
       <button class="action-btn delete-btn" title="Delete">×</button>
     </div>
   `;
-  li.querySelector('.notes-btn').addEventListener('click', () => openTaskNotes(date, idx));
-  li.querySelector('.done-btn').addEventListener('click', () => completeTaskForDate(date, idx));
-  li.querySelector('.postpone-btn').addEventListener('click', () => openPostponeModalForDate(date, idx));
-  li.querySelector('.delete-btn').addEventListener('click', () => openDeleteModalForDate(date, idx));
+}
+
+function bindTaskActionButtons(li, task, date, idx) {
+  const notesBtn = li.querySelector('.notes-btn');
+  if (notesBtn) notesBtn.addEventListener('click', () => openTaskNotes(date, idx));
+  if (!task.done) {
+    const doneBtn = li.querySelector('.done-btn');
+    const postponeBtn = li.querySelector('.postpone-btn');
+    const deleteBtn = li.querySelector('.delete-btn');
+    if (doneBtn) doneBtn.addEventListener('click', () => completeTaskForDate(date, idx));
+    if (postponeBtn) postponeBtn.addEventListener('click', () => openPostponeModalForDate(date, idx));
+    if (deleteBtn) deleteBtn.addEventListener('click', () => openDeleteModalForDate(date, idx));
+  } else {
+    const undoBtn = li.querySelector('.undo-btn');
+    if (undoBtn) undoBtn.addEventListener('click', () => undoTaskForDate(date, idx));
+  }
+}
+
+function taskProjectBadge(task) {
+  return task.projectId ? '<span class="task-project-badge" title="Project step">◬</span>' : '';
+}
+
+function buildDetailTaskItem(task, date, idx) {
+  const li = document.createElement('li');
+  li.className = 'task-item' + (task.done ? ' done' : '');
+  li.innerHTML = `
+    <span class="task-text">${taskProjectBadge(task)}${escapeHtml(task.text)}</span>
+    ${buildTaskActions(task, date, idx)}
+  `;
+  bindTaskActionButtons(li, task, date, idx);
   return li;
 }
 
 function completeTaskForDate(date, idx) {
   appState.selectedDate = date;
   completeTask(idx);
+  refreshDashboardDetail();
+}
+
+function undoTaskForDate(date, idx) {
+  appState.selectedDate = date;
+  undoTask(idx);
   refreshDashboardDetail();
 }
 
@@ -383,14 +480,14 @@ function addDetailTask(date, text) {
   if (!text) return;
   const key = dateKey(date);
   if (!appState.data.tasks[key]) appState.data.tasks[key] = [];
-  appState.data.tasks[key].push({ text, done: false, notes: '', id: uuid() });
+  appState.data.tasks[key].push(createTask(text, key));
   scheduleSave();
   renderCalendar();
   renderDashboard();
   refreshDashboardDetail();
 }
 
-function renderDashboardDetail(type) {
+function renderDashboardDetail(type, date = null) {
   const titleEl = document.getElementById('detail-title');
   const valueEl = document.getElementById('detail-value');
   const subtitleEl = document.getElementById('detail-subtitle');
@@ -403,11 +500,64 @@ function renderDashboardDetail(type) {
 
   const today = dateKey(new Date());
 
+  if (type === 'day') {
+    const key = date || today;
+    const d = new Date(key + 'T00:00:00');
+    const tasks = appState.data.tasks[key] || [];
+    const done = tasks.filter(t => t.done).length;
+    titleEl.textContent = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    valueEl.textContent = `${done}/${tasks.length}`;
+    subtitleEl.textContent = tasks.length ? `${tasks.length - done} left` : 'Nothing scheduled';
+    if (!tasks.length) {
+      bodyEl.innerHTML = '<div class="detail-empty">No tasks for this day.</div>';
+    } else {
+      tasks.forEach((task, idx) => bodyEl.appendChild(buildDetailTaskItem(task, key, idx)));
+    }
+    addEl.innerHTML = `
+      <form class="detail-add-form">
+        <input type="text" placeholder="Add a task for this day..." required>
+        <button type="submit">Add</button>
+      </form>
+    `;
+    const form = addEl.querySelector('form');
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const text = form.querySelector('input[type="text"]').value.trim();
+      if (text) { addDetailTask(key, text); form.reset(); }
+    });
+  }
+
+  if (type === 'today') {
+    const tasks = appState.data.tasks[today] || [];
+    const done = tasks.filter(t => t.done).length;
+    const total = tasks.length;
+    titleEl.textContent = 'Today';
+    valueEl.textContent = `${done}/${total}`;
+    subtitleEl.textContent = total ? `${total - done} left today` : 'Nothing scheduled';
+    if (!tasks.length) {
+      bodyEl.innerHTML = '<div class="detail-empty">No tasks for today yet. Add one below.</div>';
+    } else {
+      tasks.forEach((task, idx) => bodyEl.appendChild(buildDetailTaskItem(task, today, idx)));
+    }
+    addEl.innerHTML = `
+      <form class="detail-add-form">
+        <input type="text" placeholder="Add a task for today..." required>
+        <button type="submit">Add Today</button>
+      </form>
+    `;
+    const form = addEl.querySelector('form');
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const text = form.querySelector('input[type="text"]').value.trim();
+      if (text) { addDetailTask(today, text); form.reset(); }
+    });
+  }
+
   if (type === 'week') {
     const start = getWeekStart(new Date());
     const weekDone = countTasksDone(start);
     const weekTotal = countTasksTotal(start);
-    titleEl.textContent = 'Completed this Week';
+    titleEl.textContent = 'This Week';
     valueEl.textContent = `${weekDone}/${weekTotal}`;
     subtitleEl.textContent = weekTotal ? `${weekTotal - weekDone} left this week` : 'Nothing scheduled';
     const end = new Date(start);
@@ -495,17 +645,16 @@ function renderDashboardDetail(type) {
     valueEl.textContent = rate + '%';
     valueEl.className = 'detail-value' + (overdue === 0 ? ' good' : rate <= 20 ? ' warn' : ' bad');
     subtitleEl.textContent = overdue === 0 ? 'You are on track' : `${overdue} task${overdue === 1 ? '' : 's'} rolled over`;
-    const overdueTasks = [];
+    const rolledTasks = [];
     Object.entries(appState.data.tasks).forEach(([date, tasks]) => {
-      if (date >= today) return;
-      tasks.forEach((task, idx) => { if (!task.done) overdueTasks.push({ date, task, idx }); });
+      tasks.forEach((task, idx) => { if (!task.done && task.plantedDate && task.plantedDate !== date) rolledTasks.push({ date, task, idx }); });
     });
-    overdueTasks.sort((a, b) => a.date.localeCompare(b.date));
-    if (!overdueTasks.length) {
-      bodyEl.innerHTML = '<div class="detail-empty">No overdue tasks. You are on track.</div>';
+    rolledTasks.sort((a, b) => a.date.localeCompare(b.date));
+    if (!rolledTasks.length) {
+      bodyEl.innerHTML = '<div class="detail-empty">No rolled-over tasks. You are on track.</div>';
     } else {
       let lastDate = null;
-      overdueTasks.forEach(({ date, task, idx }) => {
+      rolledTasks.forEach(({ date, task, idx }) => {
         if (date !== lastDate) {
           const group = document.createElement('div');
           group.className = 'detail-date-group';
@@ -535,8 +684,8 @@ function renderDashboardDetail(type) {
 
   if (type === 'projects') {
     titleEl.textContent = 'Projects';
-    valueEl.textContent = appState.data.projects.length;
-    const activeProjects = appState.data.projects.filter(p => !p.steps.length || !p.steps.every(s => s.done)).length;
+    valueEl.textContent = appState.data.projects.filter(p => !p.completed).length;
+    const activeProjects = appState.data.projects.filter(p => !p.completed).length;
     const allDone = appState.data.projects.length && activeProjects === 0;
     subtitleEl.textContent = appState.data.projects.length ? (allDone ? 'all done' : `${activeProjects} active`) : 'start something big';
     if (!appState.data.projects.length) {
@@ -625,10 +774,12 @@ function renderWaypointTracker() {
     const core = isDone || isPartial ? `<circle cx="${p.x}" cy="${p.y}" r="3" class="waypoint-node core" />` : '';
     const dayPct = p.total ? `<text x="${p.x}" y="${p.y + 22}" class="waypoint-day-pct">${p.done}/${p.total}</text>` : '';
     return `
-      <circle cx="${p.x}" cy="${p.y}" r="${radius}" class="${classes.join(' ')}" />
-      ${core}
-      <text x="${p.x}" y="${p.y + 34}" class="waypoint-label">${p.dayName}</text>
-      ${dayPct}
+      <g class="waypoint-group" data-date="${p.key}" style="cursor:pointer">
+        <circle cx="${p.x}" cy="${p.y}" r="${radius}" class="${classes.join(' ')}" />
+        ${core}
+        <text x="${p.x}" y="${p.y + 34}" class="waypoint-label">${p.dayName}</text>
+        ${dayPct}
+      </g>
     `;
   }).join('');
 
@@ -660,6 +811,14 @@ function renderWaypointTracker() {
       </svg>
     </div>
   `;
+
+  container.querySelectorAll('.waypoint-group').forEach(g => {
+    g.addEventListener('click', () => {
+      const key = g.dataset.date;
+      appState.selectedDate = key;
+      openDashboardDetail('day', key);
+    });
+  });
 }
 
 function updateCharts() {
@@ -784,6 +943,21 @@ function initCalendar() {
     if (e.key === 'Enter') addTaskForSelectedDate();
   });
   document.getElementById('share-day-btn').addEventListener('click', shareDay);
+
+  const searchInput = document.getElementById('cal-search');
+  searchInput.addEventListener('input', e => {
+    appState.searchQuery = e.target.value.trim();
+    renderCalendar();
+    renderTaskPanel();
+  });
+  searchInput.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      searchInput.value = '';
+      appState.searchQuery = '';
+      renderCalendar();
+      renderTaskPanel();
+    }
+  });
 }
 
 function navigateCalendar(dir) {
@@ -798,10 +972,11 @@ function renderCalendar() {
   const body = document.getElementById('calendar-body');
   body.innerHTML = '';
   body.style.gridTemplateColumns = 'repeat(7, 1fr)';
+  const query = appState.searchQuery;
 
-  if (appState.calMode === 'month') renderMonth(body);
-  else if (appState.calMode === 'week') renderWeek(body);
-  else renderDay(body);
+  if (appState.calMode === 'month') renderMonth(body, query);
+  else if (appState.calMode === 'week') renderWeek(body, query);
+  else renderDay(body, query);
 
   document.getElementById('cal-label').textContent = formatCalendarLabel();
   renderTaskPanel();
@@ -813,7 +988,7 @@ function formatCalendarLabel() {
   return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
 
-function renderMonth(body) {
+function renderMonth(body, query = '') {
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   days.forEach(day => {
     const h = document.createElement('div');
@@ -829,41 +1004,44 @@ function renderMonth(body) {
   const prevTotal = new Date(year, month, 0).getDate();
 
   for (let i = firstDay - 1; i >= 0; i--) {
-    body.appendChild(createDayCell(new Date(year, month - 1, prevTotal - i), true));
+    body.appendChild(createDayCell(new Date(year, month - 1, prevTotal - i), true, false, false, query));
   }
   for (let i = 1; i <= totalDays; i++) {
-    body.appendChild(createDayCell(new Date(year, month, i), false));
+    body.appendChild(createDayCell(new Date(year, month, i), false, false, false, query));
   }
   const remaining = (7 - ((firstDay + totalDays) % 7)) % 7;
   for (let i = 1; i <= remaining; i++) {
-    body.appendChild(createDayCell(new Date(year, month + 1, i), true));
+    body.appendChild(createDayCell(new Date(year, month + 1, i), true, false, false, query));
   }
 }
 
-function renderWeek(body) {
+function renderWeek(body, query = '') {
   const start = getWeekStart(appState.calDate);
   for (let i = 0; i < 7; i++) {
     const d = new Date(start);
     d.setDate(d.getDate() + i);
-    body.appendChild(createDayCell(d, false, true));
+    body.appendChild(createDayCell(d, false, true, false, query));
   }
 }
 
-function renderDay(body) {
+function renderDay(body, query = '') {
   body.style.gridTemplateColumns = '1fr';
-  body.appendChild(createDayCell(appState.calDate, false, true, true));
+  body.appendChild(createDayCell(appState.calDate, false, true, true, query));
 }
 
-function createDayCell(date, otherMonth, isWeek = false, isDay = false) {
+function createDayCell(date, otherMonth, isWeek = false, isDay = false, query = '') {
   const key = dateKey(date);
   const todayKey = dateKey(new Date());
   const tasks = appState.data.tasks[key] || [];
+  const hasMatch = query && tasks.some(t => matchesTask(t, query));
 
   const cell = document.createElement('div');
   cell.className = 'cal-day';
   if (otherMonth) cell.classList.add('other-month');
   if (key === todayKey) cell.classList.add('today');
   if (key === appState.selectedDate) cell.classList.add('selected');
+  if (hasMatch) cell.classList.add('search-match');
+  if (query && !hasMatch) cell.classList.add('search-dim');
   if (isDay) cell.style.aspectRatio = 'auto';
 
   const num = document.createElement('span');
@@ -895,6 +1073,9 @@ function createDayCell(date, otherMonth, isWeek = false, isDay = false) {
 
   cell.addEventListener('click', () => {
     appState.selectedDate = key;
+    appState.searchQuery = '';
+    const searchInput = document.getElementById('cal-search');
+    if (searchInput) searchInput.value = '';
     renderCalendar();
   });
 
@@ -902,30 +1083,46 @@ function createDayCell(date, otherMonth, isWeek = false, isDay = false) {
 }
 
 function renderTaskPanel() {
-  document.getElementById('selected-date-label').textContent = 'Tasks for ' + appState.selectedDate;
-  const shareBtn = document.getElementById('share-day-btn');
-  shareBtn.style.display = appState.calMode === 'day' ? 'flex' : 'none';
+  const label = document.getElementById('selected-date-label');
   const list = document.getElementById('task-list');
   list.innerHTML = '';
+  const query = appState.searchQuery;
+
+  if (query) {
+    label.textContent = 'Search results';
+    const matches = [];
+    Object.entries(appState.data.tasks).forEach(([date, tasks]) => {
+      tasks.forEach((task, idx) => {
+        if (matchesTask(task, query)) matches.push({ date, task, idx });
+      });
+    });
+    matches.sort((a, b) => a.date.localeCompare(b.date));
+    if (matches.length === 0) {
+      list.innerHTML = '<li class="task-empty" style="color:var(--muted)">No matching tasks.</li>';
+      return;
+    }
+    let lastDate = null;
+    matches.forEach(({ date, task, idx }) => {
+      if (date !== lastDate) {
+        const group = document.createElement('li');
+        group.className = 'task-date-group';
+        const d = new Date(date + 'T00:00:00');
+        group.textContent = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        list.appendChild(group);
+        lastDate = date;
+      }
+      list.appendChild(buildDetailTaskItem(task, date, idx));
+    });
+    return;
+  }
+
+  label.textContent = 'Tasks for ' + appState.selectedDate;
   const tasks = appState.data.tasks[appState.selectedDate] || [];
-  tasks.forEach((task, idx) => {
-    const li = document.createElement('li');
-    li.className = 'task-item' + (task.done ? ' done' : '');
-    li.innerHTML = `
-      <span class="task-text">${escapeHtml(task.text)}</span>
-      <div class="task-actions">
-        <button class="notes-btn ${task.notes ? 'has-notes' : ''}" title="Notes">📝</button>
-        <button class="action-btn done-btn" title="Complete">✓</button>
-        <button class="action-btn postpone-btn" title="Postpone">↻</button>
-        <button class="action-btn delete-btn" title="Delete">×</button>
-      </div>
-    `;
-    li.querySelector('.notes-btn').addEventListener('click', () => openTaskNotes(appState.selectedDate, idx));
-    li.querySelector('.done-btn').addEventListener('click', () => completeTask(idx));
-    li.querySelector('.postpone-btn').addEventListener('click', () => openPostponeModal(idx));
-    li.querySelector('.delete-btn').addEventListener('click', () => openDeleteModal(idx));
-    list.appendChild(li);
-  });
+  if (tasks.length === 0) {
+    list.innerHTML = '<li class="task-empty" style="color:var(--muted)">No tasks for this date. Add one above.</li>';
+    return;
+  }
+  tasks.forEach((task, idx) => list.appendChild(buildDetailTaskItem(task, appState.selectedDate, idx)));
 }
 
 function addTaskForSelectedDate() {
@@ -933,29 +1130,90 @@ function addTaskForSelectedDate() {
   const text = input.value.trim();
   if (!text) return;
   if (!appState.data.tasks[appState.selectedDate]) appState.data.tasks[appState.selectedDate] = [];
-  appState.data.tasks[appState.selectedDate].push({ text, done: false, notes: '', id: uuid() });
+  appState.data.tasks[appState.selectedDate].push(createTask(text, appState.selectedDate));
   input.value = '';
   scheduleSave();
   renderCalendar();
+  renderTaskPanel();
 }
 
 function completeTask(idx) {
   const tasks = appState.data.tasks[appState.selectedDate];
   if (!tasks || !tasks[idx]) return;
-  const wasDone = tasks[idx].done;
-  tasks[idx].done = !wasDone;
+  const task = tasks[idx];
+  if (task.done) return;
+  task.done = true;
+  task.completedDate = dateKey(new Date());
+  if (task.projectId) syncStepDone(task);
+  tasks.splice(idx, 1);
+  tasks.push(task);
   scheduleSave();
   renderCalendar();
   renderDashboard();
+  renderProjects();
   refreshDashboardDetail();
-  if (!wasDone) openTaskNotes(appState.selectedDate, idx, true);
+  openTaskNotes(appState.selectedDate, tasks.length - 1, true);
 }
 
-function removeTaskAt(idx) {
+function undoTask(idx) {
+  const tasks = appState.data.tasks[appState.selectedDate];
+  if (!tasks || !tasks[idx]) return;
+  const task = tasks[idx];
+  if (!task.done) return;
+  task.done = false;
+  task.completedDate = null;
+  if (task.projectId) syncStepDone(task);
+  tasks.splice(idx, 1);
+  tasks.unshift(task);
+  scheduleSave();
+  renderCalendar();
+  renderDashboard();
+  renderProjects();
+  refreshDashboardDetail();
+}
+
+function findTaskByIdWithDate(id) {
+  for (const [date, tasks] of Object.entries(appState.data.tasks)) {
+    const idx = tasks.findIndex(t => t.id === id);
+    if (idx !== -1) return { task: tasks[idx], date, idx };
+  }
+  return null;
+}
+
+function findProjectStep(task) {
+  if (!task || !task.projectId) return null;
+  const project = appState.data.projects.find(p => p.id === task.projectId);
+  if (!project) return null;
+  const step = project.steps.find(s => s.id === task.id);
+  return step ? { project, step } : null;
+}
+
+function syncStepDone(task) {
+  const found = findProjectStep(task);
+  if (found) found.step.done = task.done;
+}
+
+function removeProjectStep(task) {
+  const found = findProjectStep(task);
+  if (found) found.project.steps = found.project.steps.filter(s => s.id !== task.id);
+}
+
+function updateProjectStepDate(task, date) {
+  const found = findProjectStep(task);
+  if (found) found.step.date = dateKey(date);
+}
+
+function extractTask(idx) {
   const tasks = appState.data.tasks[appState.selectedDate];
   const task = tasks[idx];
   tasks.splice(idx, 1);
   if (tasks.length === 0) delete appState.data.tasks[appState.selectedDate];
+  return task;
+}
+
+function removeTaskAt(idx) {
+  const task = extractTask(idx);
+  removeProjectStep(task);
   scheduleSave();
   return task;
 }
@@ -995,10 +1253,11 @@ function openDeleteModal(idx) {
     'Move to Trash',
     () => {
       const removed = removeTaskAt(idx);
-      appState.data.trash.push({ id: uuid(), text: removed.text, notes: removed.notes || '', fromDate: appState.selectedDate, moved: new Date().toISOString() });
+      appState.data.trash.push({ id: uuid(), taskId: removed.id, text: removed.text, notes: removed.notes || '', plantedDate: removed.plantedDate || appState.selectedDate, completedDate: removed.completedDate || null, fromDate: appState.selectedDate, projectId: removed.projectId || null, moved: new Date().toISOString() });
       scheduleSave();
       renderCalendar();
       renderDashboard();
+      renderProjects();
       if (appState.currentView === 'deferred') renderDeferred();
       refreshDashboardDetail();
     }
@@ -1032,23 +1291,30 @@ function openPostponeModal(idx) {
 
   const closeAndMove = (targetDate, mode) => {
     cleanup();
-    const removed = removeTaskAt(idx);
+    const removed = extractTask(idx);
+    const planted = removed.plantedDate || appState.selectedDate;
     if (mode === 'postponed') {
       appState.data.postponed.push({
         id: uuid(),
+        taskId: removed.id,
         text: removed.text,
         notes: removed.notes || '',
+        plantedDate: planted,
         fromDate: appState.selectedDate,
         targetDate,
+        projectId: removed.projectId || null,
         moved: new Date().toISOString()
       });
     } else {
       if (!appState.data.tasks[targetDate]) appState.data.tasks[targetDate] = [];
-      appState.data.tasks[targetDate].push({ text: removed.text, done: false, notes: removed.notes || '', id: uuid() });
+      const movedTask = createTask(removed.text, targetDate, removed.notes || '', planted, removed.id, removed.projectId || null, removed.done, removed.completedDate);
+      appState.data.tasks[targetDate].push(movedTask);
+      updateProjectStepDate(movedTask, targetDate);
     }
     scheduleSave();
     renderCalendar();
     renderDashboard();
+    renderProjects();
     if (appState.currentView === 'deferred') renderDeferred();
     refreshDashboardDetail();
   };
@@ -1130,17 +1396,29 @@ function renderDeferred() {
   });
 }
 
+function addProjectStepToProject(projectId, text, date, stepId, done = false) {
+  const project = appState.data.projects.find(p => p.id === projectId);
+  if (!project) return;
+  if (!project.steps.find(s => s.id === stepId)) {
+    project.steps.push({ id: stepId, text, date: dateKey(date), done: !!done });
+  }
+}
+
 function restoreDeferredItem(idx, targetDate) {
   const items = appState.deferredMode === 'postponed' ? appState.data.postponed : appState.data.trash;
   const item = items[idx];
   const key = dateKey(targetDate);
   if (!appState.data.tasks[key]) appState.data.tasks[key] = [];
-  appState.data.tasks[key].push({ text: item.text, done: false, notes: item.notes || '', id: uuid() });
+  const planted = item.plantedDate || key;
+  const restored = createTask(item.text, key, item.notes || '', planted, item.taskId || null, item.projectId || null, !!item.completedDate, item.completedDate || null);
+  appState.data.tasks[key].push(restored);
+  if (item.projectId) addProjectStepToProject(item.projectId, item.text, key, item.taskId || restored.id, restored.done);
   items.splice(idx, 1);
   scheduleSave();
   renderDeferred();
   renderCalendar();
   renderDashboard();
+  renderProjects();
 }
 
 function deleteDeferredItemForever(idx) {
@@ -1156,13 +1434,21 @@ function initProjects() {
   document.getElementById('new-project-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') addProject();
   });
+  document.getElementById('projects-mode').querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      appState.projectMode = btn.dataset.mode;
+      document.getElementById('projects-mode').querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderProjects();
+    });
+  });
 }
 
 function addProject() {
   const input = document.getElementById('new-project-input');
   const title = input.value.trim();
   if (!title) return;
-  appState.data.projects.push({ id: uuid(), title, steps: [], created: new Date().toISOString() });
+  appState.data.projects.push({ id: uuid(), title, steps: [], created: new Date().toISOString(), completed: false });
   input.value = '';
   scheduleSave();
   renderProjects();
@@ -1171,22 +1457,55 @@ function addProject() {
 }
 
 function deleteProject(pid) {
+  Object.keys(appState.data.tasks).forEach(date => {
+    appState.data.tasks[date] = appState.data.tasks[date].filter(t => t.projectId !== pid);
+    if (appState.data.tasks[date].length === 0) delete appState.data.tasks[date];
+  });
   appState.data.projects = appState.data.projects.filter(p => p.id !== pid);
   scheduleSave();
   renderProjects();
+  renderCalendar();
   renderDashboard();
   refreshDashboardDetail();
 }
 
-function addStep(pid, input) {
-  const text = input.value.trim();
+function toggleProjectCompleted(pid) {
+  const project = appState.data.projects.find(p => p.id === pid);
+  if (!project) return;
+  project.completed = !project.completed;
+  if (project.completed) {
+    project.steps.forEach(step => {
+      if (step.done) return;
+      step.done = true;
+      const found = findTaskByIdWithDate(step.id);
+      if (found) {
+        found.task.done = true;
+        found.task.completedDate = dateKey(new Date());
+      }
+    });
+  }
+  scheduleSave();
+  renderProjects();
+  renderCalendar();
+  renderDashboard();
+  refreshDashboardDetail();
+}
+
+function addStep(pid, textInput, dateInput) {
+  const text = typeof textInput === 'string' ? textInput : textInput.value.trim();
+  const dateVal = typeof dateInput === 'string' ? dateInput : (dateInput ? dateInput.value : '');
   if (!text) return;
   const project = appState.data.projects.find(p => p.id === pid);
   if (!project) return;
-  project.steps.push({ text, done: false, id: uuid() });
-  input.value = '';
+  const key = dateVal || dateKey(new Date());
+  const stepId = uuid();
+  project.steps.push({ id: stepId, text, date: key, done: false });
+  if (!appState.data.tasks[key]) appState.data.tasks[key] = [];
+  appState.data.tasks[key].push(createTask(text, key, '', key, stepId, pid));
+  if (typeof textInput !== 'string') textInput.value = '';
   scheduleSave();
   renderProjects();
+  renderCalendar();
   renderDashboard();
   refreshDashboardDetail();
 }
@@ -1195,15 +1514,37 @@ function toggleStep(pid, sid) {
   const project = appState.data.projects.find(p => p.id === pid);
   if (!project) return;
   const step = project.steps.find(s => s.id === sid);
-  if (step) { step.done = !step.done; scheduleSave(); renderProjects(); renderDashboard(); refreshDashboardDetail(); }
+  if (!step) return;
+  const found = findTaskByIdWithDate(sid);
+  if (found) {
+    const task = found.task;
+    task.done = !task.done;
+    task.completedDate = task.done ? dateKey(new Date()) : null;
+    step.done = task.done;
+    step.date = found.date;
+  } else {
+    step.done = !step.done;
+  }
+  scheduleSave();
+  renderCalendar();
+  renderDashboard();
+  renderProjects();
+  refreshDashboardDetail();
 }
 
 function deleteStep(pid, sid) {
   const project = appState.data.projects.find(p => p.id === pid);
   if (!project) return;
+  const found = findTaskByIdWithDate(sid);
+  if (found) {
+    const tasks = appState.data.tasks[found.date];
+    tasks.splice(found.idx, 1);
+    if (tasks.length === 0) delete appState.data.tasks[found.date];
+  }
   project.steps = project.steps.filter(s => s.id !== sid);
   scheduleSave();
   renderProjects();
+  renderCalendar();
   renderDashboard();
   refreshDashboardDetail();
 }
@@ -1212,6 +1553,7 @@ function buildProjectCard(project, cardClass = 'project-card glass-card tilt-car
   const total = project.steps.length;
   const done = project.steps.filter(s => s.done).length;
   const pct = total ? Math.round((done / total) * 100) : 0;
+  const isCompleted = project.completed;
 
   const card = document.createElement('div');
   card.className = cardClass;
@@ -1221,28 +1563,43 @@ function buildProjectCard(project, cardClass = 'project-card glass-card tilt-car
         <div class="project-title">${escapeHtml(project.title)}</div>
         <div class="project-meta"><span>${done}/${total} steps</span><span>${pct}%</span></div>
       </div>
-      <button class="project-delete" title="Delete project">×</button>
+      <div class="project-header-actions">
+        <button class="project-complete" title="${isCompleted ? 'Reactivate project' : 'Mark project complete'}">${isCompleted ? '↩' : '✓'}</button>
+        <button class="project-delete" title="Delete project">×</button>
+      </div>
     </div>
     <div class="project-progress"><div class="project-progress-bar" style="width:${pct}%"></div></div>
     <ul class="project-steps"></ul>
+    ${isCompleted ? '' : `
     <div class="add-step-row">
       <input type="text" placeholder="Add a step...">
+      <input type="date" value="${dateKey(new Date())}">
       <button>Add</button>
-    </div>
+    </div>`}
   `;
 
   const stepsUl = card.querySelector('.project-steps');
   project.steps.forEach(step => {
     const li = document.createElement('li');
     li.className = 'project-step' + (step.done ? ' done' : '');
-    li.innerHTML = `<div class="task-check">${step.done ? '✓' : ''}</div><span class="step-text">${escapeHtml(step.text)}</span>`;
+    li.innerHTML = `
+      <div class="task-check">${step.done ? '✓' : ''}</div>
+      <span class="step-text">${escapeHtml(step.text)}</span>
+      <span class="step-date">${step.date ? formatShortDate(step.date) : ''}</span>
+    `;
     li.addEventListener('click', () => toggleStep(project.id, step.id));
     stepsUl.appendChild(li);
   });
 
-  const stepInput = card.querySelector('.add-step-row input');
-  card.querySelector('.add-step-row button').addEventListener('click', () => addStep(project.id, stepInput));
-  stepInput.addEventListener('keydown', e => { if (e.key === 'Enter') addStep(project.id, stepInput); });
+  if (!isCompleted) {
+    const stepInput = card.querySelector('.add-step-row input[type="text"]');
+    const dateInput = card.querySelector('.add-step-row input[type="date"]');
+    const addBtn = card.querySelector('.add-step-row button');
+    const add = () => addStep(project.id, stepInput, dateInput);
+    addBtn.addEventListener('click', add);
+    stepInput.addEventListener('keydown', e => { if (e.key === 'Enter') add(); });
+  }
+  card.querySelector('.project-complete').addEventListener('click', () => toggleProjectCompleted(project.id));
   card.querySelector('.project-delete').addEventListener('click', () => deleteProject(project.id));
 
   return card;
@@ -1251,7 +1608,13 @@ function buildProjectCard(project, cardClass = 'project-card glass-card tilt-car
 function renderProjects() {
   const list = document.getElementById('projects-list');
   list.innerHTML = '';
-  appState.data.projects.forEach(project => list.appendChild(buildProjectCard(project)));
+  const mode = appState.projectMode || 'active';
+  const filtered = appState.data.projects.filter(p => mode === 'active' ? !p.completed : p.completed);
+  if (filtered.length === 0) {
+    list.innerHTML = `<div class="projects-empty" style="color:var(--muted)">No ${mode} projects.</div>`;
+    return;
+  }
+  filtered.forEach(project => list.appendChild(buildProjectCard(project)));
 }
 
 /* Notes / Brainstorm */
@@ -1568,6 +1931,7 @@ function escapeHtml(text) {
 function initNotesOverlay() {
   document.getElementById('notes-close').addEventListener('click', closeNotesOverlay);
   document.getElementById('notes-save').addEventListener('click', saveTaskNotes);
+  document.getElementById('notes-skip')?.addEventListener('click', closeNotesOverlay);
   document.getElementById('notes-overlay').addEventListener('click', e => { if (e.target === document.getElementById('notes-overlay')) closeNotesOverlay(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('notes-overlay').classList.contains('open')) closeNotesOverlay(); });
 }
@@ -1575,12 +1939,37 @@ function initNotesOverlay() {
 function openTaskNotes(date, idx, fromComplete = false) {
   const tasks = appState.data.tasks[date];
   if (!tasks || !tasks[idx]) return;
-  notesTarget = { date, idx };
+  notesTarget = { date, idx, fromComplete };
   const task = tasks[idx];
-  document.getElementById('notes-text').value = task.notes || '';
-  document.querySelector('#notes-overlay h3').textContent = fromComplete ? 'Add completion notes' : 'Task Notes';
-  document.getElementById('notes-overlay').classList.add('open');
-  setTimeout(() => document.getElementById('notes-text').focus(), 50);
+  const overlay = document.getElementById('notes-overlay');
+  const title = document.getElementById('notes-title');
+  const existing = document.getElementById('notes-existing');
+  const prompt = document.getElementById('notes-prompt');
+  const skipBtn = document.getElementById('notes-skip');
+  const saveBtn = document.getElementById('notes-save');
+  const notesText = document.getElementById('notes-text');
+
+  notesText.value = task.notes || '';
+  if (fromComplete) {
+    title.textContent = task.notes ? 'Notes already added' : 'Add additional notes?';
+    saveBtn.textContent = task.notes ? 'Update notes' : 'Add notes';
+    skipBtn.style.display = 'inline-flex';
+    skipBtn.textContent = 'Skip';
+  } else {
+    title.textContent = 'Task Notes';
+    saveBtn.textContent = 'Save notes';
+    skipBtn.style.display = 'none';
+  }
+  if (task.notes) {
+    existing.textContent = 'Existing notes: ' + task.notes;
+    existing.style.display = 'block';
+  } else {
+    existing.style.display = 'none';
+    existing.textContent = '';
+  }
+  prompt.style.display = fromComplete ? 'block' : 'none';
+  overlay.classList.add('open');
+  setTimeout(() => notesText.focus(), 50);
 }
 
 function saveTaskNotes() {
@@ -1609,14 +1998,16 @@ function fallbackCopy(textarea) {
 
 function shareDay() {
   const tasks = appState.data.tasks[appState.selectedDate] || [];
+  const d = new Date(appState.selectedDate + 'T00:00:00');
+  const dateLabel = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   if (tasks.length === 0) {
-    openModal("Share today's list", '<p style="color:var(--muted)">No tasks on this day to share.</p>', 'Close', () => {});
+    openModal(`Share ${dateLabel}`, '<p style="color:var(--muted)">No tasks on this day to share.</p>', 'Close', () => {});
     return;
   }
   const lines = tasks.map(t => `${t.done ? '- [x]' : '- [ ]'} ${t.text}${t.notes ? ' (' + t.notes + ')' : ''}`);
-  const text = `Some things on my to-do list for today:\n${lines.join('\n')}`;
+  const text = `Some things on my to-do list for ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}:\n${lines.join('\n')}`;
   const body = `<textarea id="share-text" class="share-text" readonly>${escapeHtml(text)}</textarea>`;
-  openModal("Share today's list", body, 'Copy to clipboard', () => {
+  openModal(`Share ${dateLabel}`, body, 'Copy to clipboard', () => {
     const ta = document.getElementById('share-text');
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(ta.value).catch(() => fallbackCopy(ta));
@@ -1665,12 +2056,14 @@ function generateReportData(start, end, includeTasks, includeProjects) {
   const projectRows = [];
   if (includeTasks) {
     Object.entries(appState.data.tasks).forEach(([date, tasks]) => {
-      if (date < start || date > end) return;
       tasks.forEach(task => {
-        if (task.done) taskRows.push({ date, text: task.text, notes: task.notes || '' });
+        if (!task.done) return;
+        const reportDate = task.completedDate || date;
+        if (reportDate < start || reportDate > end) return;
+        taskRows.push({ date, originalDate: task.plantedDate || date, completedDate: task.completedDate || '', text: task.text, notes: task.notes || '' });
       });
     });
-    taskRows.sort((a, b) => a.date.localeCompare(b.date));
+    taskRows.sort((a, b) => (a.completedDate || a.date).localeCompare(b.completedDate || b.date));
   }
   if (includeProjects) {
     appState.data.projects.forEach(project => {
@@ -1701,12 +2094,19 @@ async function downloadReportExcel() {
   const sheets = [];
   if (taskRows.length) {
     const taskData = [
-      ['Date', 'Task', 'Status', 'Notes']
+      ['Original Date', 'Scheduled Date', 'Task', 'Completed Date', 'Status', 'Notes']
     ];
     taskRows.forEach(row => {
-      taskData.push([{ format: 'date', value: new Date(row.date + 'T00:00:00') }, row.text, 'Completed', row.notes]);
+      taskData.push([
+        { format: 'date', value: new Date((row.originalDate || row.date) + 'T00:00:00') },
+        { format: 'date', value: new Date(row.date + 'T00:00:00') },
+        row.text,
+        row.completedDate ? { format: 'date', value: new Date(row.completedDate + 'T00:00:00') } : '',
+        'Completed',
+        row.notes
+      ]);
     });
-    sheets.push({ name: 'Completed Tasks', freeze: { rows: 1 }, cols: '14,40,14,50', data: taskData });
+    sheets.push({ name: 'Completed Tasks', freeze: { rows: 1 }, cols: '14,14,36,14,12,40', data: taskData });
   }
   if (projectRows.length) {
     const projectData = [
@@ -1754,6 +2154,8 @@ async function boot() {
   appState.data.notes.forEach(n => {
     if (!n.created) n.created = n.updated || new Date().toISOString();
   });
+  autoRollover();
+  appState.data.projects.forEach(p => { if (typeof p.completed !== 'boolean') p.completed = false; });
   initTheme();
   initPlatform();
   initAuth();

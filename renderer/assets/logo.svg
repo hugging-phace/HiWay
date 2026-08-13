@@ -5,7 +5,7 @@
       <stop offset="100%" stop-color="#a855f7"/>
     </linearGradient>
   </defs>
-  <circle cx="40" cy="40" r="24" stroke="url(#brandGradient)" stroke-width="9" stroke-linecap="round"/>
-  <circle cx="40" cy="40" r="6" fill="url(#brandGradient)"/>
-  <path d="M64 40H108 M98 32L108 40L98 48" stroke="url(#brandGradient)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="36" cy="40" r="28" stroke="url(#brandGradient)" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="36" cy="40" r="7" fill="url(#brandGradient)"/>
+  <path d="M70 40H92 M84 32L92 40L84 48" stroke="url(#brandGradient)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
