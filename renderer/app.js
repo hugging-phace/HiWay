@@ -445,20 +445,30 @@ function bindTaskActionButtons(li, task, date, idx) {
   }
 }
 
-function taskProjectBadge(task) {
-  return task.projectId ? '<span class="task-project-badge" title="Project step">Project</span>' : '';
+function taskBadge(task) {
+  if (task.projectId) return `<button class="task-project-badge task-badge" data-pid="${escapeHtml(task.projectId)}" title="Open project">Project</button>`;
+  if (task.spreadsheetId) return `<button class="task-spreadsheet-badge task-badge" data-sid="${escapeHtml(task.spreadsheetId)}" title="Open spreadsheet">Spreadsheet</button>`;
+  return '';
 }
 
 function buildDetailTaskItem(task, date, idx) {
   const li = document.createElement('li');
-  li.className = 'task-item' + (task.done ? ' done' : '') + (task.projectId ? ' project-task' : '');
+  li.className = 'task-item' + (task.done ? ' done' : '') + (task.projectId ? ' project-task' : '') + (task.spreadsheetId ? ' spreadsheet-task' : '');
   const rolled = !task.done && task.plantedDate && task.plantedDate !== date;
   const rolledMeta = rolled ? `<span class="task-rolled-meta">Planted ${formatShortDate(task.plantedDate)} · now ${formatShortDate(date)}</span>` : '';
   li.innerHTML = `
-    <span class="task-text">${taskProjectBadge(task)}${escapeHtml(task.text)}${rolledMeta}</span>
+    <span class="task-text">${taskBadge(task)}${escapeHtml(task.text)}${rolledMeta}</span>
     ${buildTaskActions(task, date, idx)}
   `;
   bindTaskActionButtons(li, task, date, idx);
+  const badge = li.querySelector('.task-badge');
+  if (badge) {
+    badge.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (badge.dataset.pid) openProject(badge.dataset.pid);
+      if (badge.dataset.sid) openSpreadsheet(badge.dataset.sid);
+    });
+  }
   return li;
 }
 
@@ -1273,7 +1283,7 @@ function openDeleteModal(idx) {
     'Move to Trash',
     () => {
       const removed = removeTaskAt(idx);
-      appState.data.trash.push({ id: uuid(), taskId: removed.id, text: removed.text, notes: removed.notes || '', plantedDate: removed.plantedDate || appState.selectedDate, completedDate: removed.completedDate || null, fromDate: appState.selectedDate, projectId: removed.projectId || null, moved: new Date().toISOString() });
+      appState.data.trash.push({ id: uuid(), taskId: removed.id, text: removed.text, notes: removed.notes || '', plantedDate: removed.plantedDate || appState.selectedDate, completedDate: removed.completedDate || null, fromDate: appState.selectedDate, projectId: removed.projectId || null, spreadsheetId: removed.spreadsheetId || null, moved: new Date().toISOString() });
       scheduleSave();
       renderCalendar();
       renderDashboard();
@@ -1323,11 +1333,12 @@ function openPostponeModal(idx) {
         fromDate: appState.selectedDate,
         targetDate,
         projectId: removed.projectId || null,
+        spreadsheetId: removed.spreadsheetId || null,
         moved: new Date().toISOString()
       });
     } else {
       if (!appState.data.tasks[targetDate]) appState.data.tasks[targetDate] = [];
-      const movedTask = createTask(removed.text, targetDate, removed.notes || '', planted, removed.id, removed.projectId || null, removed.done, removed.completedDate);
+      const movedTask = createTask(removed.text, targetDate, removed.notes || '', planted, removed.id, removed.projectId || null, removed.done, removed.completedDate, removed.spreadsheetId || null);
       appState.data.tasks[targetDate].push(movedTask);
       updateProjectStepDate(movedTask, targetDate);
     }
@@ -1430,7 +1441,7 @@ function restoreDeferredItem(idx, targetDate) {
   const key = dateKey(targetDate);
   if (!appState.data.tasks[key]) appState.data.tasks[key] = [];
   const planted = item.plantedDate || key;
-  const restored = createTask(item.text, key, item.notes || '', planted, item.taskId || null, item.projectId || null, !!item.completedDate, item.completedDate || null);
+  const restored = createTask(item.text, key, item.notes || '', planted, item.taskId || null, item.projectId || null, !!item.completedDate, item.completedDate || null, item.spreadsheetId || null);
   appState.data.tasks[key].push(restored);
   if (item.projectId) addProjectStepToProject(item.projectId, item.text, key, item.taskId || restored.id, restored.done);
   items.splice(idx, 1);
@@ -1580,6 +1591,7 @@ function buildProjectCard(project, cardClass = 'project-card glass-card tilt-car
 
   const card = document.createElement('div');
   card.className = cardClass;
+  card.dataset.id = project.id;
   card.innerHTML = `
     <div class="project-header">
       <div>
@@ -1640,6 +1652,23 @@ function renderProjects() {
     return;
   }
   filtered.forEach(project => list.appendChild(buildProjectCard(project)));
+}
+
+function openProject(pid) {
+  const project = appState.data.projects.find(p => p.id === pid);
+  if (!project) return;
+  appState.projectMode = project.completed ? 'completed' : 'active';
+  const modeButtons = document.getElementById('projects-mode').querySelectorAll('button');
+  modeButtons.forEach(b => b.classList.toggle('active', b.dataset.mode === appState.projectMode));
+  switchView('projects');
+  setTimeout(() => {
+    const card = document.querySelector(`.project-card[data-id="${CSS.escape(pid)}"]`);
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      card.classList.add('project-highlight');
+      setTimeout(() => card.classList.remove('project-highlight'), 1500);
+    }
+  }, 60);
 }
 
 /* Notes / Brainstorm */
@@ -2201,7 +2230,10 @@ function createSpreadsheetData() {
     title: 'Untitled Spreadsheet',
     rows: SHEET_DEFAULT_ROWS,
     cols: SHEET_DEFAULT_COLS,
-    cells: {}
+    cells: {},
+    colScale: 1,
+    rowScale: 1,
+    filter: null
   };
 }
 
@@ -2452,6 +2484,10 @@ function initSpreadsheets() {
   });
   document.getElementById('sheet-close').addEventListener('click', closeSpreadsheet);
   document.getElementById('sheet-export').addEventListener('click', exportSpreadsheet);
+  document.getElementById('sheet-cols-narrow').addEventListener('click', () => adjustSheetScale('col', -0.2));
+  document.getElementById('sheet-cols-wide').addEventListener('click', () => adjustSheetScale('col', 0.2));
+  document.getElementById('sheet-rows-short').addEventListener('click', () => adjustSheetScale('row', -0.2));
+  document.getElementById('sheet-rows-tall').addEventListener('click', () => adjustSheetScale('row', 0.2));
   document.getElementById('sheet-title-input').addEventListener('input', e => {
     if (activeSheet) {
       activeSheet.title = e.target.value;
@@ -2477,18 +2513,72 @@ function renderSpreadsheets() {
   sheets.forEach(sheet => {
     const tile = document.createElement('div');
     tile.className = 'spreadsheet-tile glass-card';
-    tile.innerHTML = `<div class="spreadsheet-tile-title">${escapeHtml(sheet.title || 'Untitled')}</div>`;
+    tile.innerHTML = `
+      <div class="spreadsheet-tile-title">${escapeHtml(sheet.title || 'Untitled')}</div>
+      <button class="spreadsheet-tile-delete" title="Delete spreadsheet">×</button>
+    `;
     tile.addEventListener('click', () => openSpreadsheet(sheet.id));
+    const delBtn = tile.querySelector('.spreadsheet-tile-delete');
+    delBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteSpreadsheet(sheet.id); });
     grid.appendChild(tile);
   });
 }
 
 function openSpreadsheet(id) {
+  switchView('spreadsheets');
   const sheet = appState.data.spreadsheets.find(s => s.id === id);
   if (!sheet) return;
   activeSheet = sheet;
+  if (activeSheet.colScale === undefined) activeSheet.colScale = 1;
+  if (activeSheet.rowScale === undefined) activeSheet.rowScale = 1;
+  if (!activeSheet.filter) activeSheet.filter = null;
   document.getElementById('sheet-title-input').value = sheet.title || '';
   document.getElementById('spreadsheet-detail').classList.add('open');
+  renderSheet();
+}
+
+function deleteSpreadsheet(sid) {
+  const sheet = appState.data.spreadsheets.find(s => s.id === sid);
+  if (!sheet) return;
+  const linked = findTaskBySpreadsheetId(sid);
+  const msg = linked
+    ? `Delete "${sheet.title || 'Untitled'}"? This will also delete the linked task: "${linked.text}". This cannot be undone.`
+    : `Delete "${sheet.title || 'Untitled'}"? This cannot be undone.`;
+  if (!confirm(msg)) return;
+  if (linked) {
+    Object.keys(appState.data.tasks).forEach(date => {
+      appState.data.tasks[date] = appState.data.tasks[date].filter(t => t.id !== linked.id);
+      if (appState.data.tasks[date].length === 0) delete appState.data.tasks[date];
+    });
+    appState.data.postponed = appState.data.postponed.filter(t => t.taskId !== linked.id);
+    appState.data.trash = appState.data.trash.filter(t => t.taskId !== linked.id);
+  }
+  appState.data.spreadsheets = appState.data.spreadsheets.filter(s => s.id !== sid);
+  if (activeSheet && activeSheet.id === sid) closeSpreadsheet();
+  scheduleSave();
+  renderSpreadsheets();
+  renderDashboard();
+  renderCalendar();
+  refreshDashboardDetail();
+}
+
+function findTaskBySpreadsheetId(sid) {
+  for (const date of Object.keys(appState.data.tasks)) {
+    const found = appState.data.tasks[date].find(t => t.spreadsheetId === sid);
+    if (found) return found;
+  }
+  const inPost = appState.data.postponed.find(t => t.spreadsheetId === sid);
+  if (inPost) return { id: inPost.taskId, text: inPost.text };
+  const inTrash = appState.data.trash.find(t => t.spreadsheetId === sid);
+  if (inTrash) return { id: inTrash.taskId, text: inTrash.text };
+  return null;
+}
+
+function adjustSheetScale(type, delta) {
+  if (!activeSheet) return;
+  if (type === 'col') activeSheet.colScale = Math.max(0.4, Math.min(3, (activeSheet.colScale || 1) + delta));
+  else activeSheet.rowScale = Math.max(0.4, Math.min(3, (activeSheet.rowScale || 1) + delta));
+  scheduleSave();
   renderSheet();
 }
 
@@ -2502,24 +2592,46 @@ function renderSheet() {
   if (!activeSheet) { container.innerHTML = ''; return; }
   const rows = activeSheet.rows || SHEET_DEFAULT_ROWS;
   const cols = activeSheet.cols || SHEET_DEFAULT_COLS;
+  const colScale = activeSheet.colScale || 1;
+  const rowScale = activeSheet.rowScale || 1;
+  const colWidth = Math.round(90 * colScale);
+  const rowHeight = Math.round(28 * rowScale);
+  const filter = activeSheet.filter;
 
   const table = document.createElement('table');
   table.className = 'sheet-table';
+  table.style.setProperty('--sheet-col-width', colWidth + 'px');
+  table.style.setProperty('--sheet-row-height', rowHeight + 'px');
+
   const thead = document.createElement('thead');
   const headerRow = document.createElement('tr');
   headerRow.appendChild(document.createElement('th'));
   for (let c = 0; c < cols; c++) {
     const th = document.createElement('th');
-    th.textContent = indexToCol(c);
+    th.className = 'sheet-col-header';
+    const letter = indexToCol(c);
+    th.innerHTML = `<span class="sheet-col-letter">${letter}</span><button class="sheet-filter-btn" data-col="${c}" title="Filter ${letter}">▾</button>`;
+    if (filter && filter.col === c) th.classList.add('filtered');
     headerRow.appendChild(th);
   }
   thead.appendChild(headerRow);
   table.appendChild(thead);
 
-  const tbody = document.createElement('tbody');
+  const visibleRows = [];
   for (let r = 0; r < rows; r++) {
+    let ok = true;
+    if (filter && filter.col >= 0) {
+      const v = String(getSheetCellDisplay(activeSheet, r, filter.col) || '');
+      if (v !== filter.value) ok = false;
+    }
+    if (ok) visibleRows.push(r);
+  }
+
+  const tbody = document.createElement('tbody');
+  visibleRows.forEach(r => {
     const tr = document.createElement('tr');
     const rowHead = document.createElement('th');
+    rowHead.className = 'sheet-row-header';
     rowHead.textContent = r + 1;
     tr.appendChild(rowHead);
     for (let c = 0; c < cols; c++) {
@@ -2544,10 +2656,54 @@ function renderSheet() {
       tr.appendChild(td);
     }
     tbody.appendChild(tr);
-  }
+  });
   table.appendChild(tbody);
+
   container.innerHTML = '';
   container.appendChild(table);
+
+  table.querySelectorAll('.sheet-filter-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      showSheetFilterMenu(parseInt(btn.dataset.col), btn);
+    });
+  });
+}
+
+function showSheetFilterMenu(col, anchor) {
+  if (!activeSheet) return;
+  const existing = document.querySelector('.sheet-filter-menu');
+  if (existing) existing.remove();
+  const values = new Set();
+  const rows = activeSheet.rows || SHEET_DEFAULT_ROWS;
+  for (let r = 0; r < rows; r++) {
+    const v = String(getSheetCellDisplay(activeSheet, r, col) || '');
+    if (v) values.add(v);
+  }
+  const menu = document.createElement('div');
+  menu.className = 'sheet-filter-menu glass-card';
+  const allBtn = document.createElement('button');
+  allBtn.className = 'sheet-filter-item';
+  allBtn.textContent = '(All)';
+  allBtn.addEventListener('click', () => { activeSheet.filter = null; scheduleSave(); renderSheet(); menu.remove(); });
+  menu.appendChild(allBtn);
+  if (values.size === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'sheet-filter-empty';
+    empty.textContent = 'No values';
+    menu.appendChild(empty);
+  } else {
+    Array.from(values).sort().forEach(v => {
+      const btn = document.createElement('button');
+      btn.className = 'sheet-filter-item';
+      btn.textContent = v.length > 24 ? v.slice(0, 24) + '…' : v;
+      btn.title = v;
+      btn.addEventListener('click', () => { activeSheet.filter = { col, value: v }; scheduleSave(); renderSheet(); menu.remove(); });
+      menu.appendChild(btn);
+    });
+  }
+  anchor.parentElement.appendChild(menu);
+  document.addEventListener('click', function close(e) { if (!menu.contains(e.target) && e.target !== anchor) { menu.remove(); document.removeEventListener('click', close); } });
 }
 
 function initMain() {

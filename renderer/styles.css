@@ -276,32 +276,8 @@ html[data-theme="light"] .segmented-control button:hover {
   position: relative;
 }
 
-.platform-darwin #main-screen {
-  padding-top: 58px;
-}
-
 .titlebar {
   display: none;
-}
-
-.platform-darwin .titlebar {
-  display: flex;
-  position: absolute;
-  top: 0;
-  left: 18px;
-  right: 18px;
-  height: 40px;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  -webkit-app-region: drag;
-  app-region: drag;
-  color: var(--text);
-  font-weight: 700;
-  font-size: 0.9rem;
-  letter-spacing: 0.02em;
-  pointer-events: none;
-  opacity: 0.8;
 }
 
 .sidebar {
@@ -1733,7 +1709,7 @@ html[data-theme="light"] .project-step {
   transition: opacity 0.2s;
 }
 
-.task-project-badge {
+.task-project-badge, .task-spreadsheet-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1748,6 +1724,22 @@ html[data-theme="light"] .project-step {
   text-transform: uppercase;
   color: white;
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+
+.task-spreadsheet-badge {
+  background: linear-gradient(135deg, #0ea5e9, #22d3ee);
+}
+
+.task-badge {
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.project-card.project-highlight {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  animation: none;
 }
 
 .projects-empty {
@@ -2837,4 +2829,145 @@ html[data-theme="light"] .spreadsheet-detail {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.spreadsheet-size-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.spreadsheet-size-controls .secondary-btn {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  border-radius: var(--radius-md);
+}
+
+.spreadsheet-tile {
+  position: relative;
+}
+
+.spreadsheet-tile-delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger, #ef4444);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s, background 0.2s;
+  z-index: 2;
+}
+
+.spreadsheet-tile:hover .spreadsheet-tile-delete {
+  opacity: 1;
+}
+
+.spreadsheet-tile-delete:hover {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+.sheet-col-header {
+  position: relative;
+  min-width: var(--sheet-col-width, 80px);
+  width: var(--sheet-col-width, 80px);
+  height: var(--sheet-row-height, 32px);
+  padding: 0 8px 0 4px;
+  text-align: center;
+  vertical-align: middle;
+  overflow: visible;
+}
+
+.sheet-col-header.filtered .sheet-col-letter {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.sheet-col-letter {
+  pointer-events: none;
+}
+
+.sheet-filter-btn {
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.65rem;
+  padding: 2px;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+.sheet-filter-btn:hover {
+  opacity: 1;
+  color: var(--text);
+}
+
+.sheet-filter-menu {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 140px;
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  border-radius: var(--radius-md);
+  z-index: 10;
+  border: 1px solid var(--border);
+  background: var(--glass);
+  backdrop-filter: blur(12px);
+}
+
+.sheet-filter-item {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sheet-filter-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.sheet-filter-empty {
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.sheet-table th,
+.sheet-table td {
+  min-width: var(--sheet-col-width, 80px);
+  width: var(--sheet-col-width, 80px);
+  height: var(--sheet-row-height, 32px);
+}
+
+.sheet-table th.sheet-row-header {
+  min-width: 44px;
+  width: 44px;
 }
