@@ -6,9 +6,13 @@ const mockStorage = {
 
 if (!window.hiwayAPI) {
   window.hiwayAPI = {
+    platform: 'browser',
     getUsers: async () => mockStorage.users,
     saveUsers: async (users) => { mockStorage.users = users; localStorage.setItem('hiway-users', JSON.stringify(users)); return true; },
     getData: async () => mockStorage.data,
-    saveData: async (data) => { mockStorage.data = data; localStorage.setItem('hiway-data', JSON.stringify(data)); return true; }
+    saveData: async (data) => { mockStorage.data = data; localStorage.setItem('hiway-data', JSON.stringify(data)); return true; },
+    windowAction: () => true,
+    isMaximized: async () => false,
+    setTitleBarOverlay: () => true
   };
 }

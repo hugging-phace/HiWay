@@ -40,6 +40,7 @@ function createWindow() {
     transparent: false,
     frame: !isWin,
     roundedCorners: isWin ? true : undefined,
+    titleBarOverlay: isWin ? { color: '#0b0c15', symbolColor: '#ffffff', height: 46 } : false,
     autoHideMenuBar: true,
     backgroundColor: '#0b0c15',
     show: false,
@@ -113,4 +114,12 @@ ipcMain.handle('api:windowAction', (event, action) => {
 ipcMain.handle('api:isMaximized', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   return win ? win.isMaximized() : false;
+});
+
+ipcMain.handle('api:setTitleBarOverlay', (event, options) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win && process.platform === 'win32' && win.setTitleBarOverlay) {
+    win.setTitleBarOverlay(options);
+  }
+  return true;
 });

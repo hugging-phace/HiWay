@@ -12,7 +12,8 @@ contextBridge.exposeInMainWorld('hiwayAPI', {
   windowAction: (action) => ipcRenderer.invoke('api:windowAction', action),
   isMaximized: () => ipcRenderer.invoke('api:isMaximized'),
   onMaximized: (cb) => ipcRenderer.on('window:maximize', () => cb()),
-  onUnmaximized: (cb) => ipcRenderer.on('window:unmaximize', () => cb())
+  onUnmaximized: (cb) => ipcRenderer.on('window:unmaximize', () => cb()),
+  setTitleBarOverlay: (options) => ipcRenderer.invoke('api:setTitleBarOverlay', options)
 });
 
 contextBridge.exposeInMainWorld('createXlsx', (workbook) => createXlsx(workbook));

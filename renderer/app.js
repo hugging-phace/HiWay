@@ -191,10 +191,24 @@ function matchesTask(task, query) {
 function initTheme() {
   const savedTheme = appState.data.theme || 'light';
   document.documentElement.setAttribute('data-theme', savedTheme);
+  syncTitleBarOverlay();
   if (typeof Chart !== 'undefined') {
     const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text').trim();
     Chart.defaults.color = textColor;
   }
+}
+
+function syncTitleBarOverlay() {
+  if (!window.hiwayAPI || !window.hiwayAPI.setTitleBarOverlay) return;
+  const theme = document.documentElement.getAttribute('data-theme') || 'light';
+  const isLight = theme === 'light';
+  try {
+    window.hiwayAPI.setTitleBarOverlay({
+      color: isLight ? '#eef2f7' : '#0b0c15',
+      symbolColor: isLight ? '#0b0c15' : '#ffffff',
+      height: 46
+    });
+  } catch (e) {}
 }
 
 function initPlatform() {
@@ -235,6 +249,7 @@ function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme');
   const next = current === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', next);
+  syncTitleBarOverlay();
   appState.data.theme = next;
   scheduleSave();
   if (typeof Chart !== 'undefined') {
@@ -377,14 +392,28 @@ function initTopbarScroll() {
   const container = document.querySelector('.views-container');
   const topbar = document.querySelector('.topbar');
   if (!container || !topbar) return;
+  let ticking = false;
   container.addEventListener('scroll', () => {
-    const st = container.scrollTop;
-    const collapsed = topbar.classList.contains('collapsed');
-    if (!collapsed && st > 12) {
-      topbar.classList.add('collapsed');
-    } else if (collapsed && st < 4) {
-      topbar.classList.remove('collapsed');
-    }
+    if (ticking) return;
+    window.requestAnimationFrame(() => {
+      const st = container.scrollTop;
+      const collapsed = topbar.classList.contains('collapsed');
+      const maxScroll = container.scrollHeight - container.clientHeight;
+      if (maxScroll < 60) {
+        if (collapsed) topbar.classList.remove('collapsed');
+        ticking = false;
+        return;
+      }
+      const collapseAt = Math.min(40, maxScroll * 0.35);
+      const expandAt = collapseAt * 0.25;
+      if (!collapsed && st > collapseAt) {
+        topbar.classList.add('collapsed');
+      } else if (collapsed && st < expandAt) {
+        topbar.classList.remove('collapsed');
+      }
+      ticking = false;
+    });
+    ticking = true;
   });
 }
 
@@ -1756,7 +1785,11 @@ function addProject() {
 function deleteProject(pid) {
   const project = appState.data.projects.find(p => p.id === pid);
   if (!project) return;
-  if (!confirm(`Delete "${project.title}"? This will also delete all associated tasks and spreadsheets. This cannot be undone.`)) return;
+  if (!confirm(`Delete "${project.title}"? This will also delete all associated tasks and spreadsheets. This cannot be undone.`)) {
+    setTimeout(() => window.focus(), 0);
+    return;
+  }
+  setTimeout(() => window.focus(), 0);
   Object.keys(appState.data.tasks).forEach(date => {
     appState.data.tasks[date] = appState.data.tasks[date].filter(t => t.projectId !== pid);
     if (appState.data.tasks[date].length === 0) delete appState.data.tasks[date];
@@ -1860,12 +1893,11 @@ function addProjectSpreadsheet(projectId, title) {
   const sheet = createSpreadsheetData();
   if (t) sheet.title = t;
   sheet.projectId = projectId;
-  appState.data.spreadsheets.push(sheet);
+  appState.data.spreadsheets.unshift(sheet);
   scheduleSave();
   renderProjects();
   renderSpreadsheets();
   refreshPeek();
-  openSpreadsheet(sheet.id, true);
 }
 
 function buildProjectCard(project, cardClass = 'project-card glass-card tilt-card') {
@@ -1901,7 +1933,13 @@ function buildProjectCard(project, cardClass = 'project-card glass-card tilt-car
     <div class="project-sheets">
       <div class="project-sheets-title">
         <span>Spreadsheets</span>
-        ${isCompleted ? '' : `<button class="project-add-sheet" title="Add spreadsheet">+ Spreadsheet</button>`}
+        ${isCompleted ? '' : `
+          <form class="project-add-sheet-form" style="display:none;">
+            <input type="text" class="project-sheet-input" placeholder="Spreadsheet name...">
+            <button type="submit" class="project-sheet-add-submit">Add</button>
+          </form>
+          <button class="project-add-sheet" title="Add spreadsheet">+ Spreadsheet</button>
+        `}
       </div>
       <ul class="project-sheets-list"></ul>
     </div>
@@ -1946,7 +1984,7 @@ function buildProjectCard(project, cardClass = 'project-card glass-card tilt-car
   }
 
   const sheetList = card.querySelector('.project-sheets-list');
-  const projectSheets = appState.data.spreadsheets.filter(s => s.projectId === project.id);
+  const projectSheets = getProjectSheets(project.id);
   if (!projectSheets.length) {
     sheetList.innerHTML = `<li class="project-sheet-empty">No spreadsheets yet.</li>`;
   } else {
@@ -1967,7 +2005,34 @@ function buildProjectCard(project, cardClass = 'project-card glass-card tilt-car
   }
   if (!isCompleted) {
     const addSheetBtn = card.querySelector('.project-add-sheet');
-    if (addSheetBtn) addSheetBtn.addEventListener('click', () => addProjectSpreadsheet(project.id));
+    const addSheetForm = card.querySelector('.project-add-sheet-form');
+    const addSheetInput = card.querySelector('.project-sheet-input');
+    if (addSheetBtn && addSheetForm && addSheetInput) {
+      addSheetBtn.addEventListener('click', () => {
+        addSheetBtn.style.display = 'none';
+        addSheetForm.style.display = 'flex';
+        addSheetInput.focus();
+      });
+      addSheetForm.addEventListener('submit', e => {
+        e.preventDefault();
+        const title = addSheetInput.value.trim();
+        if (!title) return;
+        addProjectSpreadsheet(project.id, title);
+      });
+      addSheetInput.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+          addSheetBtn.style.display = '';
+          addSheetForm.style.display = 'none';
+          addSheetInput.value = '';
+        }
+      });
+      addSheetInput.addEventListener('blur', () => {
+        if (!addSheetInput.value.trim()) {
+          addSheetBtn.style.display = '';
+          addSheetForm.style.display = 'none';
+        }
+      });
+    }
   }
 
   card.querySelector('.project-complete').addEventListener('click', () => toggleProjectCompleted(project.id));
@@ -2586,14 +2651,41 @@ function createSpreadsheetData() {
   return {
     id: uuid(),
     title: 'Untitled Spreadsheet',
+    created: new Date().toISOString(),
     projectId: null,
     rows: SHEET_DEFAULT_ROWS,
     cols: SHEET_DEFAULT_COLS,
     cells: {},
+    colWidths: [],
+    rowHeights: [],
     colScale: 1,
     rowScale: 1,
     filter: null
   };
+}
+
+function sortSpreadsheets() {
+  if (!appState.data.spreadsheets) return;
+  appState.data.spreadsheets.sort((a, b) => new Date(b.created || 0) - new Date(a.created || 0));
+}
+
+function getProjectSheets(projectId) {
+  sortSpreadsheets();
+  return appState.data.spreadsheets.filter(s => s.projectId === projectId);
+}
+
+function getSheetColWidth(sheet, c) {
+  if (sheet.colWidths && sheet.colWidths[c]) return sheet.colWidths[c];
+  return Math.round(90 * (sheet.colScale || 1));
+}
+
+function getSheetRowHeight(sheet, r) {
+  if (sheet.rowHeights && sheet.rowHeights[r]) return sheet.rowHeights[r];
+  return Math.round(28 * (sheet.rowScale || 1));
+}
+
+function getSheetCellRaw(sheet, r, c) {
+  return sheet.cells[posToKey(r, c)] || '';
 }
 
 function tokenizeFormula(formula) {
@@ -2771,7 +2863,7 @@ function getSheetCellDisplay(sheet, r, c) {
   return String(v);
 }
 
-function setSheetCell(sheet, r, c, value) {
+function setSheetCellRaw(sheet, r, c, value) {
   const key = posToKey(r, c);
   if (value === '' || value === undefined) {
     delete sheet.cells[key];
@@ -2779,10 +2871,16 @@ function setSheetCell(sheet, r, c, value) {
     sheet.cells[key] = value;
   }
   scheduleSave();
+}
+
+function setSheetCell(sheet, r, c, value) {
+  setSheetCellRaw(sheet, r, c, value);
   renderSheet();
 }
 
 let activeSheet = null;
+let selectedCell = null;
+let newlyCreatedSheetId = null;
 
 async function exportSpreadsheet() {
   if (!activeSheet) return;
@@ -2833,7 +2931,7 @@ function initSpreadsheets() {
     const title = input.value.trim();
     const sheet = createSpreadsheetData();
     if (title) sheet.title = title;
-    appState.data.spreadsheets.push(sheet);
+    appState.data.spreadsheets.unshift(sheet);
     if (taskToggle && taskToggle.checked) {
       const key = taskDate && taskDate.value ? taskDate.value : dateKey(new Date());
       if (!appState.data.tasks[key]) appState.data.tasks[key] = [];
@@ -2845,12 +2943,34 @@ function initSpreadsheets() {
       }
     }
     scheduleSave();
+    newlyCreatedSheetId = sheet.id;
     renderSpreadsheets();
     renderDashboard();
     renderCalendar();
     input.value = '';
-    openSpreadsheet(sheet.id);
+    setTimeout(() => { newlyCreatedSheetId = null; renderSpreadsheets(); }, 1600);
   });
+
+  const formulaBar = document.getElementById('sheet-formula-bar');
+  if (formulaBar) {
+    formulaBar.addEventListener('input', e => {
+      if (!selectedCell || !activeSheet) return;
+      const { r, c } = selectedCell;
+      const input = document.querySelector(`.sheet-table input[data-r="${r}"][data-c="${c}"]`);
+      setSheetCellRaw(activeSheet, r, c, e.target.value);
+      if (input) input.value = getSheetCellDisplay(activeSheet, r, c);
+    });
+    formulaBar.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (!selectedCell || !activeSheet) return;
+        const { r, c } = selectedCell;
+        setSheetCell(activeSheet, r, c, e.target.value);
+        const input = document.querySelector(`.sheet-table input[data-r="${r}"][data-c="${c}"]`);
+        if (input) input.focus();
+      }
+    });
+  }
   document.getElementById('sheet-close').addEventListener('click', closeSpreadsheet);
   document.getElementById('sheet-export').addEventListener('click', exportSpreadsheet);
   document.getElementById('sheet-cols-narrow').addEventListener('click', () => adjustSheetScale('col', -0.2));
@@ -2874,6 +2994,7 @@ function initSpreadsheets() {
 function renderSpreadsheets() {
   const grid = document.getElementById('spreadsheets-grid');
   grid.innerHTML = '';
+  sortSpreadsheets();
   const sheets = appState.data.spreadsheets || [];
   if (!sheets.length) {
     grid.innerHTML = '<div class="spreadsheets-empty">Create a spreadsheet to get started.</div>';
@@ -2896,6 +3017,7 @@ function renderSpreadsheets() {
       </div>
     `;
     tile.addEventListener('click', () => openSpreadsheet(sheet.id));
+    if (sheet.id === newlyCreatedSheetId) tile.classList.add('newly-created');
     const delBtn = tile.querySelector('.spreadsheet-tile-delete');
     delBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteSpreadsheet(sheet.id); });
     const projBadge = tile.querySelector('.spreadsheet-tile-badge');
@@ -2909,11 +3031,15 @@ function renderSpreadsheets() {
 function openSpreadsheet(id, inPlace = false) {
   if (!inPlace) switchView('spreadsheets');
   else closePeek();
+  sortSpreadsheets();
   const sheet = appState.data.spreadsheets.find(s => s.id === id);
   if (!sheet) return;
   activeSheet = sheet;
+  selectedCell = null;
   if (activeSheet.colScale === undefined) activeSheet.colScale = 1;
   if (activeSheet.rowScale === undefined) activeSheet.rowScale = 1;
+  if (activeSheet.colWidths === undefined) activeSheet.colWidths = [];
+  if (activeSheet.rowHeights === undefined) activeSheet.rowHeights = [];
   if (!activeSheet.filter) activeSheet.filter = null;
   document.getElementById('sheet-title-input').value = sheet.title || '';
   document.getElementById('spreadsheet-detail').classList.add('open');
@@ -2927,7 +3053,11 @@ function deleteSpreadsheet(sid) {
   const msg = linked
     ? `Delete "${sheet.title || 'Untitled'}"? This will also delete the linked task: "${linked.text}". This cannot be undone.`
     : `Delete "${sheet.title || 'Untitled'}"? This cannot be undone.`;
-  if (!confirm(msg)) return;
+  if (!confirm(msg)) {
+    setTimeout(() => window.focus(), 0);
+    return;
+  }
+  setTimeout(() => window.focus(), 0);
   if (linked) {
     Object.keys(appState.data.tasks).forEach(date => {
       appState.data.tasks[date] = appState.data.tasks[date].filter(t => t.id !== linked.id);
@@ -2961,8 +3091,27 @@ function findTaskBySpreadsheetId(sid) {
 
 function adjustSheetScale(type, delta) {
   if (!activeSheet) return;
-  if (type === 'col') activeSheet.colScale = Math.max(0.4, Math.min(3, (activeSheet.colScale || 1) + delta));
-  else activeSheet.rowScale = Math.max(0.4, Math.min(3, (activeSheet.rowScale || 1) + delta));
+  if (type === 'col') {
+    const old = activeSheet.colScale || 1;
+    activeSheet.colScale = Math.max(0.4, Math.min(3, old + delta));
+    const ratio = activeSheet.colScale / old;
+    const widths = activeSheet.colWidths || [];
+    const cols = activeSheet.cols || SHEET_DEFAULT_COLS;
+    for (let c = 0; c < cols; c++) {
+      widths[c] = Math.round((widths[c] || getSheetColWidth(activeSheet, c)) * ratio);
+    }
+    activeSheet.colWidths = widths;
+  } else {
+    const old = activeSheet.rowScale || 1;
+    activeSheet.rowScale = Math.max(0.4, Math.min(3, old + delta));
+    const ratio = activeSheet.rowScale / old;
+    const heights = activeSheet.rowHeights || [];
+    const rows = activeSheet.rows || SHEET_DEFAULT_ROWS;
+    for (let r = 0; r < rows; r++) {
+      heights[r] = Math.round((heights[r] || getSheetRowHeight(activeSheet, r)) * ratio);
+    }
+    activeSheet.rowHeights = heights;
+  }
   scheduleSave();
   renderSheet();
 }
@@ -2970,6 +3119,19 @@ function adjustSheetScale(type, delta) {
 function closeSpreadsheet() {
   document.getElementById('spreadsheet-detail').classList.remove('open');
   activeSheet = null;
+  selectedCell = null;
+}
+
+function updateFormulaBar() {
+  const bar = document.getElementById('sheet-formula-bar');
+  if (!bar) return;
+  if (selectedCell && activeSheet) {
+    bar.value = getSheetCellRaw(activeSheet, selectedCell.r, selectedCell.c);
+    bar.placeholder = `${indexToCol(selectedCell.c)}${selectedCell.r + 1}`;
+  } else {
+    bar.value = '';
+    bar.placeholder = 'Formula / value';
+  }
 }
 
 function renderSheet() {
@@ -2977,25 +3139,23 @@ function renderSheet() {
   if (!activeSheet) { container.innerHTML = ''; return; }
   const rows = activeSheet.rows || SHEET_DEFAULT_ROWS;
   const cols = activeSheet.cols || SHEET_DEFAULT_COLS;
-  const colScale = activeSheet.colScale || 1;
-  const rowScale = activeSheet.rowScale || 1;
-  const colWidth = Math.round(90 * colScale);
-  const rowHeight = Math.round(28 * rowScale);
   const filter = activeSheet.filter;
 
   const table = document.createElement('table');
   table.className = 'sheet-table';
-  table.style.setProperty('--sheet-col-width', colWidth + 'px');
-  table.style.setProperty('--sheet-row-height', rowHeight + 'px');
 
   const thead = document.createElement('thead');
   const headerRow = document.createElement('tr');
   headerRow.appendChild(document.createElement('th'));
   for (let c = 0; c < cols; c++) {
+    const colWidth = getSheetColWidth(activeSheet, c);
     const th = document.createElement('th');
     th.className = 'sheet-col-header';
+    th.dataset.c = c;
+    th.style.width = colWidth + 'px';
+    th.style.minWidth = colWidth + 'px';
     const letter = indexToCol(c);
-    th.innerHTML = `<span class="sheet-col-letter">${letter}</span><button class="sheet-filter-btn" data-col="${c}" title="Filter ${letter}">▾</button>`;
+    th.innerHTML = `<span class="sheet-col-letter">${letter}</span><button class="sheet-filter-btn" data-col="${c}" title="Filter ${letter}">▾</button><div class="sheet-col-resizer"></div>`;
     if (filter && filter.col === c) th.classList.add('filtered');
     headerRow.appendChild(th);
   }
@@ -3014,13 +3174,23 @@ function renderSheet() {
 
   const tbody = document.createElement('tbody');
   visibleRows.forEach(r => {
+    const rowHeight = getSheetRowHeight(activeSheet, r);
     const tr = document.createElement('tr');
+    tr.style.height = rowHeight + 'px';
     const rowHead = document.createElement('th');
     rowHead.className = 'sheet-row-header';
-    rowHead.textContent = r + 1;
+    rowHead.dataset.r = r;
+    rowHead.style.height = rowHeight + 'px';
+    rowHead.innerHTML = `<span>${r + 1}</span><div class="sheet-row-resizer"></div>`;
     tr.appendChild(rowHead);
     for (let c = 0; c < cols; c++) {
+      const colWidth = getSheetColWidth(activeSheet, c);
       const td = document.createElement('td');
+      td.dataset.r = r;
+      td.dataset.c = c;
+      td.style.width = colWidth + 'px';
+      td.style.minWidth = colWidth + 'px';
+      td.style.height = rowHeight + 'px';
       const input = document.createElement('input');
       input.type = 'text';
       input.className = 'sheet-cell';
@@ -3030,10 +3200,18 @@ function renderSheet() {
       input.addEventListener('change', e => {
         setSheetCell(activeSheet, parseInt(e.target.dataset.r), parseInt(e.target.dataset.c), e.target.value);
       });
+      input.addEventListener('focus', e => {
+        selectedCell = { r: parseInt(e.target.dataset.r), c: parseInt(e.target.dataset.c) };
+        updateFormulaBar();
+      });
       input.addEventListener('keydown', e => {
         if (e.key === 'Enter') {
           e.preventDefault();
-          const next = table.querySelector(`input[data-r="${r + 1}"][data-c="${c}"]`);
+          const nextR = r + 1;
+          const nextC = c;
+          setSheetCell(activeSheet, r, c, e.target.value);
+          selectedCell = { r: nextR, c: nextC };
+          const next = document.querySelector(`.sheet-table input[data-r="${nextR}"][data-c="${nextC}"]`);
           if (next) next.focus();
         }
       });
@@ -3051,6 +3229,72 @@ function renderSheet() {
     btn.addEventListener('click', e => {
       e.stopPropagation();
       showSheetFilterMenu(parseInt(btn.dataset.col), btn);
+    });
+  });
+
+  attachSheetResizers(table);
+  updateFormulaBar();
+
+  if (selectedCell) {
+    const sel = table.querySelector(`input[data-r="${selectedCell.r}"][data-c="${selectedCell.c}"]`);
+    if (sel) sel.focus();
+  }
+}
+
+function attachSheetResizers(table) {
+  if (!activeSheet || !table) return;
+  table.querySelectorAll('.sheet-col-resizer').forEach(resizer => {
+    resizer.addEventListener('mousedown', e => {
+      e.stopPropagation();
+      const th = resizer.closest('th');
+      const c = parseInt(th.dataset.c);
+      const startX = e.clientX;
+      const startW = th.getBoundingClientRect().width;
+      function onMove(ev) {
+        const w = Math.max(40, startW + ev.clientX - startX);
+        th.style.width = w + 'px';
+        th.style.minWidth = w + 'px';
+        table.querySelectorAll(`td[data-c="${c}"]`).forEach(td => { td.style.width = w + 'px'; td.style.minWidth = w + 'px'; });
+      }
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        const w = Math.round(parseFloat(th.style.width) || startW);
+        if (!activeSheet.colWidths) activeSheet.colWidths = [];
+        activeSheet.colWidths[c] = w;
+        scheduleSave();
+        renderSheet();
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+
+  table.querySelectorAll('.sheet-row-resizer').forEach(resizer => {
+    resizer.addEventListener('mousedown', e => {
+      e.stopPropagation();
+      const th = resizer.closest('th');
+      const r = parseInt(th.dataset.r);
+      const tr = th.parentElement;
+      const startY = e.clientY;
+      const startH = th.getBoundingClientRect().height;
+      function onMove(ev) {
+        const h = Math.max(20, startH + ev.clientY - startY);
+        tr.style.height = h + 'px';
+        th.style.height = h + 'px';
+        tr.querySelectorAll('td').forEach(td => { td.style.height = h + 'px'; });
+      }
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        const h = Math.round(parseFloat(th.style.height) || startH);
+        if (!activeSheet.rowHeights) activeSheet.rowHeights = [];
+        activeSheet.rowHeights[r] = h;
+        scheduleSave();
+        renderSheet();
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
     });
   });
 }
