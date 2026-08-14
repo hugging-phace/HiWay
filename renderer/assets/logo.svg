@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 80" fill="none">
   <defs>
     <linearGradient id="brandGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#4f46e5"/>
-      <stop offset="50%" stop-color="#7c3aed"/>
-      <stop offset="100%" stop-color="#5e7d9f"/>
+      <stop offset="0%" stop-color="#4B4BB8"/>
+      <stop offset="50%" stop-color="#6865F5"/>
+      <stop offset="100%" stop-color="#A34FF0"/>
     </linearGradient>
   </defs>
   <g transform="translate(60,40) scale(1.12) translate(-50,-40)" stroke="url(#brandGradient)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">

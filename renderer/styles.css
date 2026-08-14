@@ -1554,7 +1554,7 @@ html[data-theme="light"] .task-item {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: 200;
   display: none;
   align-items: center;
   justify-content: center;
