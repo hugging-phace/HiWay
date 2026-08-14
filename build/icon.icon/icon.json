@@ -5,7 +5,8 @@
       "srgb:0.36863,0.16471,0.61176,1.00000"
     ],
     "orientation": {
-      "direction": "top-left-to-bottom-right"
+      "start": { "x": 0, "y": 0 },
+      "stop": { "x": 1, "y": 1 }
     }
   },
   "fill-specializations": [
@@ -16,7 +17,8 @@
           "srgb:0.36863,0.16471,0.61176,1.00000"
         ],
         "orientation": {
-          "direction": "top-left-to-bottom-right"
+          "start": { "x": 0, "y": 0 },
+          "stop": { "x": 1, "y": 1 }
         }
       }
     },
@@ -28,7 +30,8 @@
           "srgb:0.36863,0.16471,0.61176,1.00000"
         ],
         "orientation": {
-          "direction": "top-left-to-bottom-right"
+          "start": { "x": 0, "y": 0 },
+          "stop": { "x": 1, "y": 1 }
         }
       }
     },
