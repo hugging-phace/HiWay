@@ -436,6 +436,11 @@ html[data-theme="light"] .segmented-control button:hover {
   flex-shrink: 0;
 }
 
+.topbar > .cloud-wrap {
+  overflow: visible;
+  white-space: normal;
+}
+
 .topbar.collapsed {
   width: 44px;
   min-height: 44px;
@@ -868,9 +873,9 @@ html[data-theme="dark"] .cloud-action {
 }
 
 .dashboard-detail {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  z-index: 10;
+  z-index: 120;
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -880,9 +885,9 @@ html[data-theme="dark"] .cloud-action {
   pointer-events: none;
   transform: scale(0.96);
   transition: opacity 0.35s ease, transform 0.35s ease;
-  background: rgba(11, 12, 21, 0.08);
-  backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
+  background: rgba(11, 12, 21, 0.12);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
 }
 
 html[data-theme="light"] .dashboard-detail {

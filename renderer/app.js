@@ -461,6 +461,13 @@ function initCloudBackup() {
 function switchView(view) {
   const container = document.querySelector('.views-container');
   const topbar = document.querySelector('.topbar');
+  closeDashboardDetail();
+  closeNotesOverlay();
+  closePeek();
+  closeSpreadsheet();
+  cloudPopoutOpen = false;
+  const popout = document.getElementById('cloud-popout');
+  if (popout) popout.style.display = 'none';
   appState.currentView = view;
   document.querySelectorAll('.nav-item').forEach(btn => btn.classList.toggle('active', btn.dataset.view === view));
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
