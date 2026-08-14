@@ -203,6 +203,33 @@ function initPlatform() {
   }
 }
 
+function initWindowControls() {
+  if ((window.hiwayAPI && window.hiwayAPI.platform) !== 'win32') return;
+  const controls = document.querySelector('.win-controls');
+  if (!controls) return;
+  const maxBtn = controls.querySelector('.win-max');
+  async function syncMaxIcon() {
+    if (!maxBtn || !window.hiwayAPI || !window.hiwayAPI.isMaximized) return;
+    const maximized = await window.hiwayAPI.isMaximized();
+    maxBtn.dataset.action = maximized ? 'unmaximize' : 'maximize';
+    maxBtn.title = maximized ? 'Restore' : 'Maximize';
+    maxBtn.innerHTML = maximized ? '&#x2750;' : '&#x25A1;';
+  }
+  controls.addEventListener('click', (e) => {
+    const btn = e.target.closest('.win-btn');
+    if (!btn || !window.hiwayAPI || !window.hiwayAPI.windowAction) return;
+    const action = btn.dataset.action;
+    if (action) window.hiwayAPI.windowAction(action);
+  });
+  if (window.hiwayAPI && window.hiwayAPI.onMaximized) {
+    window.hiwayAPI.onMaximized(syncMaxIcon);
+  }
+  if (window.hiwayAPI && window.hiwayAPI.onUnmaximized) {
+    window.hiwayAPI.onUnmaximized(syncMaxIcon);
+  }
+  syncMaxIcon();
+}
+
 function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme');
   const next = current === 'dark' ? 'light' : 'dark';
@@ -3313,6 +3340,7 @@ function initMain() {
   switchView('dashboard');
   initLiquidEffects();
   initTour();
+  initWindowControls();
 }
 
 async function boot() {

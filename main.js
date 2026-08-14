@@ -28,18 +28,21 @@ const iconPath = path.join(__dirname, 'build/icon.png');
 
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+  const isWin = process.platform === 'win32';
   const win = new BrowserWindow({
     width: Math.min(1400, width - 100),
     height: Math.min(900, height - 100),
     minWidth: 1000,
     minHeight: 700,
     title: 'Onward',
-    titleBarStyle: 'default',
+    titleBarStyle: isWin ? 'hidden' : 'default',
     trafficLightPosition: undefined,
     transparent: false,
-    frame: true,
+    frame: !isWin,
+    roundedCorners: isWin ? true : undefined,
     autoHideMenuBar: true,
     backgroundColor: '#0b0c15',
+    show: false,
     icon: process.platform === 'darwin' ? undefined : iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -50,6 +53,10 @@ function createWindow() {
   });
 
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  win.once('ready-to-show', () => win.show());
+
+  win.on('maximize', () => win.webContents.send('window:maximize'));
+  win.on('unmaximize', () => win.webContents.send('window:unmaximize'));
 }
 
 app.whenReady().then(() => {
@@ -92,4 +99,18 @@ ipcMain.handle('api:openBackup', async (event) => {
   const filePath = filePaths[0];
   const data = fs.readFileSync(filePath, 'utf-8');
   return { canceled: false, filePath, data };
+});
+
+ipcMain.handle('api:windowAction', (event, action) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return;
+  if (action === 'minimize') win.minimize();
+  else if (action === 'maximize') win.maximize();
+  else if (action === 'unmaximize') win.unmaximize();
+  else if (action === 'close') win.close();
+});
+
+ipcMain.handle('api:isMaximized', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  return win ? win.isMaximized() : false;
 });

@@ -438,6 +438,55 @@ html[data-theme="light"] .segmented-control button:hover {
   font-size: 0.9rem;
 }
 
+.win-controls {
+  display: none;
+}
+
+.platform-win32 .topbar {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+.platform-win32 .topbar .tour-btn,
+.platform-win32 .topbar .cloud-wrap,
+.platform-win32 .topbar .user-pill,
+.platform-win32 .topbar .win-controls,
+.platform-win32 .topbar .win-btn {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.platform-win32 .win-controls {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 0 -12px 0 8px;
+}
+
+.win-btn {
+  width: 42px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.win-btn:hover {
+  background: var(--border);
+}
+
+.win-close:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
 .tour-btn {
   width: 32px;
   height: 32px;
