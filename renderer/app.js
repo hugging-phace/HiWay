@@ -26,6 +26,7 @@ const appState = {
 };
 
 let saveTimeout;
+let topbarCollapseTimer = null;
 let dashboardDetailType = null;
 let dashboardDetailDate = null;
 let notesTarget = null;
@@ -372,6 +373,25 @@ function initNavigation() {
   document.getElementById('logout-btn').addEventListener('click', logout);
 }
 
+function initTopbarScroll() {
+  const container = document.querySelector('.views-container');
+  const topbar = document.querySelector('.topbar');
+  if (!container || !topbar) return;
+  // Keep the full topbar on Windows so custom window controls remain reachable.
+  const isWin = document.documentElement.classList.contains('platform-win32');
+  container.addEventListener('scroll', () => {
+    clearTimeout(topbarCollapseTimer);
+    if (isWin) return;
+    if (container.scrollTop > 60) {
+      topbarCollapseTimer = setTimeout(() => {
+        topbar.classList.add('collapsed');
+      }, 1400);
+    } else {
+      topbar.classList.remove('collapsed');
+    }
+  });
+}
+
 function initCloudBackup() {
   const cloudBtn = document.getElementById('cloud-btn');
   const popout = document.getElementById('cloud-popout');
@@ -444,6 +464,7 @@ function initCloudBackup() {
 
 function switchView(view) {
   const container = document.querySelector('.views-container');
+  const topbar = document.querySelector('.topbar');
   appState.currentView = view;
   document.querySelectorAll('.nav-item').forEach(btn => btn.classList.toggle('active', btn.dataset.view === view));
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -458,7 +479,11 @@ function switchView(view) {
   if (view === 'reports') renderReports();
   if (view === 'spreadsheets') renderSpreadsheets();
   if (container) {
-    requestAnimationFrame(() => { container.scrollTop = 0; });
+    requestAnimationFrame(() => {
+      container.scrollTop = 0;
+      if (topbar) topbar.classList.remove('collapsed');
+      clearTimeout(topbarCollapseTimer);
+    });
   }
 }
 
@@ -3331,6 +3356,7 @@ function positionTourTooltip(target, position) {
 
 function initMain() {
   initNavigation();
+  initTopbarScroll();
   initCloudBackup();
   initCalendar();
   initProjects();
