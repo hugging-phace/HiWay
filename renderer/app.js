@@ -378,9 +378,11 @@ function initTopbarScroll() {
   const topbar = document.querySelector('.topbar');
   if (!container || !topbar) return;
   container.addEventListener('scroll', () => {
-    if (container.scrollTop > 60) {
+    const st = container.scrollTop;
+    const collapsed = topbar.classList.contains('collapsed');
+    if (!collapsed && st > 12) {
       topbar.classList.add('collapsed');
-    } else {
+    } else if (collapsed && st < 4) {
       topbar.classList.remove('collapsed');
     }
   });
@@ -3208,6 +3210,17 @@ function getTourSteps(view) {
 }
 
 function startTour() {
+  const container = document.querySelector('.views-container');
+  const topbar = document.querySelector('.topbar');
+  if (container) container.scrollTop = 0;
+  if (topbar) topbar.classList.remove('collapsed');
+  closeDashboardDetail();
+  closeNotesOverlay();
+  closePeek();
+  closeSpreadsheet();
+  document.getElementById('cloud-popout').style.display = 'none';
+  cloudPopoutOpen = false;
+
   const overlay = document.getElementById('tour-overlay');
   const tooltip = document.getElementById('tour-tooltip');
   overlay.style.display = 'block';

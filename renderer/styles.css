@@ -424,12 +424,12 @@ html[data-theme="light"] .segmented-control button:hover {
   min-height: 64px;
   backdrop-filter: blur(48px) saturate(180%);
   -webkit-backdrop-filter: blur(48px) saturate(180%);
-  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), gap 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: width 0.18s ease-out, min-height 0.18s ease-out, padding 0.18s ease-out, margin 0.18s ease-out, border-radius 0.18s ease-out, gap 0.18s ease-out, opacity 0.15s ease;
   box-sizing: border-box;
 }
 
 .topbar > * {
-  transition: opacity 0.2s ease, max-width 0.2s ease, padding 0.2s ease, margin 0.2s ease, flex 0.2s ease;
+  transition: opacity 0.15s ease, max-width 0.15s ease, padding 0.15s ease, margin 0.15s ease, flex 0.15s ease;
   max-width: 2000px;
   overflow: hidden;
   white-space: nowrap;
