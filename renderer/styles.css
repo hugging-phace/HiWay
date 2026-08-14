@@ -479,6 +479,9 @@ html[data-theme="light"] .segmented-control button:hover {
   width: 20px;
   height: 20px;
   fill: currentColor;
+  pointer-events: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .cloud-btn:hover {
@@ -2548,8 +2551,17 @@ html[data-theme="light"] .project-sheet-item:hover {
   transition: opacity 0.3s ease;
 }
 
-.sidebar, .topbar {
+.sidebar {
   position: relative;
+}
+
+.topbar {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(48px) saturate(180%);
+  -webkit-backdrop-filter: blur(48px) saturate(180%);
 }
 
 /* Mouse reactive tilt on cards */

@@ -85,12 +85,18 @@ function buildBackup() {
   }, null, 2);
 }
 
-function downloadBackup() {
-  const blob = new Blob([buildBackup()], { type: 'application/json' });
+async function downloadBackup() {
+  const json = buildBackup();
+  const suggestedName = `onward-backup-${dateKey(new Date())}.json`;
+  if (window.hiwayAPI && window.hiwayAPI.saveBackup) {
+    await window.hiwayAPI.saveBackup(json, suggestedName);
+    return;
+  }
+  const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `onward-backup-${dateKey(new Date())}.json`;
+  a.download = suggestedName;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -150,12 +156,16 @@ function readBackupFile(file) {
   });
 }
 
-async function restoreBackup(file) {
-  const backup = await readBackupFile(file);
+function applyBackup(backup) {
+  if (!backup || typeof backup !== 'object') throw new Error('Invalid backup file.');
   mergeBackup(backup);
   if (backup.currentUser && !appState.user) {
     appState.user = backup.currentUser;
   }
+}
+
+async function restoreBackup(file) {
+  applyBackup(await readBackupFile(file));
 }
 
 function createTask(text, date, notes = '', plantedDate = null, id = null, projectId = null, done = false, completedDate = null, spreadsheetId = null) {
@@ -261,8 +271,32 @@ function initAuth() {
 
   const authRestoreBtn = document.getElementById('auth-restore');
   const authRestoreFile = document.getElementById('auth-restore-file');
-  if (authRestoreBtn && authRestoreFile) {
-    authRestoreBtn.addEventListener('click', () => authRestoreFile.click());
+  if (authRestoreBtn) {
+    authRestoreBtn.addEventListener('click', async () => {
+      if (window.hiwayAPI && window.hiwayAPI.openBackup) {
+        try {
+          const result = await window.hiwayAPI.openBackup();
+          if (result.canceled) return;
+          const backup = JSON.parse(result.data);
+          pendingRestore = backup;
+          const previousUser = backup.currentUser || (backup.users && Object.keys(backup.users)[0]) || null;
+          const info = document.getElementById('auth-restore-info');
+          if (previousUser) {
+            info.textContent = `Backup found for @${previousUser}. Enter that username and password, or log in to another account, and the data will be merged.`;
+            document.getElementById('auth-username').value = previousUser;
+          } else {
+            info.textContent = 'Backup loaded. Log in or create an account to merge the data.';
+          }
+        } catch (err) {
+          document.getElementById('auth-error').textContent = err.message || 'Could not restore backup.';
+        }
+        return;
+      }
+      if (authRestoreFile) authRestoreFile.click();
+    });
+  }
+
+  if (authRestoreFile) {
     authRestoreFile.addEventListener('change', async e => {
       const file = e.target.files[0];
       if (!file) return;
@@ -319,6 +353,8 @@ function initCloudBackup() {
   const restoreBtn = document.getElementById('backup-restore');
   const restoreFile = document.getElementById('restore-file');
   if (!cloudBtn || !popout) return;
+  if (cloudBtn.dataset.inited) return;
+  cloudBtn.dataset.inited = '1';
 
   function togglePopout() {
     cloudPopoutOpen = !cloudPopoutOpen;
@@ -342,27 +378,41 @@ function initCloudBackup() {
     }
   });
 
-  if (downloadBtn) downloadBtn.addEventListener('click', () => {
-    downloadBackup();
+  if (downloadBtn) downloadBtn.addEventListener('click', async () => {
+    await downloadBackup();
     closePopout();
   });
 
-  if (restoreBtn && restoreFile) {
-    restoreBtn.addEventListener('click', () => restoreFile.click());
-    restoreFile.addEventListener('change', async e => {
-      const file = e.target.files[0];
-      if (!file) return;
+  if (restoreBtn) restoreBtn.addEventListener('click', async () => {
+    if (window.hiwayAPI && window.hiwayAPI.openBackup) {
       try {
-        await restoreBackup(file);
+        const result = await window.hiwayAPI.openBackup();
+        if (result.canceled) return;
+        applyBackup(JSON.parse(result.data));
         closePopout();
         switchView(appState.currentView || 'dashboard');
         alert('Backup restored and merged successfully.');
       } catch (err) {
-        alert(err.message);
+        alert(err.message || 'Could not restore backup.');
       }
-      restoreFile.value = '';
-    });
-  }
+      return;
+    }
+    if (restoreFile) restoreFile.click();
+  });
+
+  if (restoreFile) restoreFile.addEventListener('change', async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      await restoreBackup(file);
+      closePopout();
+      switchView(appState.currentView || 'dashboard');
+      alert('Backup restored and merged successfully.');
+    } catch (err) {
+      alert(err.message);
+    }
+    restoreFile.value = '';
+  });
 }
 
 function switchView(view) {

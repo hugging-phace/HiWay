@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -68,3 +68,28 @@ ipcMain.handle('api:getUsers', () => readJSON(usersFile, {}));
 ipcMain.handle('api:saveUsers', (event, users) => { writeJSON(usersFile, users); return true; });
 ipcMain.handle('api:getData', () => readJSON(dataFile, {}));
 ipcMain.handle('api:saveData', (event, data) => { writeJSON(dataFile, data); return true; });
+
+ipcMain.handle('api:saveBackup', async (event, data, suggestedName) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const { canceled, filePath } = await dialog.showSaveDialog(win, {
+    title: 'Save Onward backup',
+    defaultPath: suggestedName || `onward-backup-${new Date().toISOString().slice(0, 10)}.json`,
+    filters: [{ name: 'JSON backups', extensions: ['json'] }]
+  });
+  if (canceled || !filePath) return { canceled: true };
+  fs.writeFileSync(filePath, data);
+  return { canceled: false, filePath };
+});
+
+ipcMain.handle('api:openBackup', async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+    title: 'Restore Onward backup',
+    filters: [{ name: 'JSON backups', extensions: ['json'] }],
+    properties: ['openFile']
+  });
+  if (canceled || !filePaths || !filePaths.length) return { canceled: true };
+  const filePath = filePaths[0];
+  const data = fs.readFileSync(filePath, 'utf-8');
+  return { canceled: false, filePath, data };
+});
