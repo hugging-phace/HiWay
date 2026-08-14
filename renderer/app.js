@@ -377,15 +377,9 @@ function initTopbarScroll() {
   const container = document.querySelector('.views-container');
   const topbar = document.querySelector('.topbar');
   if (!container || !topbar) return;
-  // Keep the full topbar on Windows so custom window controls remain reachable.
-  const isWin = document.documentElement.classList.contains('platform-win32');
   container.addEventListener('scroll', () => {
-    clearTimeout(topbarCollapseTimer);
-    if (isWin) return;
     if (container.scrollTop > 60) {
-      topbarCollapseTimer = setTimeout(() => {
-        topbar.classList.add('collapsed');
-      }, 1400);
+      topbar.classList.add('collapsed');
     } else {
       topbar.classList.remove('collapsed');
     }
