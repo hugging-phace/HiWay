@@ -3592,6 +3592,10 @@ html[data-theme="light"] .peek-overlay {
   opacity: 1;
 }
 
+.tour-target {
+  scroll-margin-top: 90px;
+}
+
 .tour-spotlight {
   position: fixed;
   border-radius: 12px;

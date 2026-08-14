@@ -3249,7 +3249,7 @@ function showTourStep(idx) {
   if (target) {
     target.classList.add('tour-target');
     tourTargetEl = target;
-    target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+    target.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
   }
   positionTourSpotlight(target, step.position);
   positionTourTooltip(target, step.position);
