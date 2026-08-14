@@ -29,6 +29,8 @@ let saveTimeout;
 let dashboardDetailType = null;
 let dashboardDetailDate = null;
 let notesTarget = null;
+let pendingRestore = null;
+let cloudPopoutOpen = false;
 
 function scheduleSave() {
   clearTimeout(saveTimeout);
@@ -70,6 +72,90 @@ function formatShortDate(date) {
   const d = new Date(key + 'T00:00:00');
   if (isNaN(d.getTime())) return key;
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function buildBackup() {
+  return JSON.stringify({
+    version: 1,
+    app: 'Onward',
+    exportedAt: new Date().toISOString(),
+    currentUser: appState.user,
+    users: appState.users,
+    data: appState.data
+  }, null, 2);
+}
+
+function downloadBackup() {
+  const blob = new Blob([buildBackup()], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `onward-backup-${dateKey(new Date())}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function mergeUniqueArrays(a = [], b = [], key = 'id') {
+  const map = new Map();
+  [...a, ...b].forEach(item => {
+    const k = item && item[key] ? item[key] : JSON.stringify(item);
+    if (!map.has(k)) map.set(k, item);
+  });
+  return Array.from(map.values());
+}
+
+function mergeBackup(backup) {
+  if (!backup || typeof backup !== 'object') throw new Error('Invalid backup file.');
+  const incoming = backup.data || {};
+  const current = appState.data;
+
+  // Merge users
+  if (backup.users && typeof backup.users === 'object') {
+    appState.users = { ...appState.users, ...backup.users };
+  }
+
+  // Merge tasks by date, deduplicating by id
+  if (incoming.tasks && typeof incoming.tasks === 'object') {
+    Object.keys(incoming.tasks).forEach(key => {
+      const incomingList = Array.isArray(incoming.tasks[key]) ? incoming.tasks[key] : [];
+      current.tasks[key] = mergeUniqueArrays(current.tasks[key] || [], incomingList, 'id');
+    });
+  }
+
+  // Merge array collections
+  current.projects = mergeUniqueArrays(current.projects, incoming.projects, 'id');
+  current.notes = mergeUniqueArrays(current.notes, incoming.notes, 'id');
+  current.spreadsheets = mergeUniqueArrays(current.spreadsheets, incoming.spreadsheets, 'id');
+  current.postponed = mergeUniqueArrays(current.postponed, incoming.postponed, 'id');
+  current.trash = mergeUniqueArrays(current.trash, incoming.trash, 'id');
+
+  if (incoming.theme) current.theme = incoming.theme;
+  scheduleSave();
+}
+
+function readBackupFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        resolve(JSON.parse(e.target.result));
+      } catch (err) {
+        reject(new Error('That file is not a valid Onward backup.'));
+      }
+    };
+    reader.onerror = () => reject(new Error('Could not read the selected file.'));
+    reader.readAsText(file);
+  });
+}
+
+async function restoreBackup(file) {
+  const backup = await readBackupFile(file);
+  mergeBackup(backup);
+  if (backup.currentUser && !appState.user) {
+    appState.user = backup.currentUser;
+  }
 }
 
 function createTask(text, date, notes = '', plantedDate = null, id = null, projectId = null, done = false, completedDate = null, spreadsheetId = null) {
@@ -164,8 +250,39 @@ function initAuth() {
       appState.user = username;
     }
 
+    if (pendingRestore) {
+      mergeBackup(pendingRestore);
+      pendingRestore = null;
+      await window.hiwayAPI.saveUsers(appState.users);
+    }
+
     enterApp();
   });
+
+  const authRestoreBtn = document.getElementById('auth-restore');
+  const authRestoreFile = document.getElementById('auth-restore-file');
+  if (authRestoreBtn && authRestoreFile) {
+    authRestoreBtn.addEventListener('click', () => authRestoreFile.click());
+    authRestoreFile.addEventListener('change', async e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const backup = await readBackupFile(file);
+        pendingRestore = backup;
+        const previousUser = backup.currentUser || (backup.users && Object.keys(backup.users)[0]) || null;
+        const info = document.getElementById('auth-restore-info');
+        if (previousUser) {
+          info.textContent = `Backup found for @${previousUser}. Enter that username and password, or log in to another account, and the data will be merged.`;
+          document.getElementById('auth-username').value = previousUser;
+        } else {
+          info.textContent = 'Backup loaded. Log in or create an account to merge the data.';
+        }
+      } catch (err) {
+        document.getElementById('auth-error').textContent = err.message;
+      }
+      authRestoreFile.value = '';
+    });
+  }
 }
 
 function enterApp() {
@@ -192,6 +309,60 @@ function initNavigation() {
 
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
   document.getElementById('logout-btn').addEventListener('click', logout);
+}
+
+function initCloudBackup() {
+  const cloudBtn = document.getElementById('cloud-btn');
+  const popout = document.getElementById('cloud-popout');
+  const closeBtn = document.getElementById('cloud-close');
+  const downloadBtn = document.getElementById('backup-download');
+  const restoreBtn = document.getElementById('backup-restore');
+  const restoreFile = document.getElementById('restore-file');
+  if (!cloudBtn || !popout) return;
+
+  function togglePopout() {
+    cloudPopoutOpen = !cloudPopoutOpen;
+    popout.style.display = cloudPopoutOpen ? 'block' : 'none';
+  }
+
+  function closePopout() {
+    cloudPopoutOpen = false;
+    popout.style.display = 'none';
+  }
+
+  cloudBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    togglePopout();
+  });
+
+  if (closeBtn) closeBtn.addEventListener('click', closePopout);
+  document.addEventListener('click', e => {
+    if (cloudPopoutOpen && !popout.contains(e.target) && e.target !== cloudBtn && !cloudBtn.contains(e.target)) {
+      closePopout();
+    }
+  });
+
+  if (downloadBtn) downloadBtn.addEventListener('click', () => {
+    downloadBackup();
+    closePopout();
+  });
+
+  if (restoreBtn && restoreFile) {
+    restoreBtn.addEventListener('click', () => restoreFile.click());
+    restoreFile.addEventListener('change', async e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        await restoreBackup(file);
+        closePopout();
+        switchView(appState.currentView || 'dashboard');
+        alert('Backup restored and merged successfully.');
+      } catch (err) {
+        alert(err.message);
+      }
+      restoreFile.value = '';
+    });
+  }
 }
 
 function switchView(view) {
@@ -2845,12 +3016,14 @@ function initTour() {
 
 function getTourSteps(view) {
   const dotsStep = { target: null, message: 'Notice the colored dots next to tasks. Purple means a project; green means a spreadsheet. Hover a dot to see the label, then click to open it.', position: 'center' };
-  const topBarStep = { target: '.topbar', message: 'This is the top bar. The question mark starts this tour any time from any screen.', position: 'bottom' };
+  const topBarStep = { target: '.topbar', message: 'This is the top bar. The question mark starts this tour and the cloud handles backups.', position: 'bottom' };
+  const cloudStep = { target: '#cloud-btn', message: 'Tap the cloud to download a backup or restore from one. Cloud sync is coming soon — your data is stored locally for now.', position: 'bottom' };
   const navStep = { target: '.sidebar nav', message: 'Switch between Dashboard, Calendar, Projects, Brainstorm, Reports, Spreadsheets, and Deferred.', position: 'right' };
 
   if (view === 'calendar') {
     return [
       topBarStep,
+      cloudStep,
       { target: '#cal-mode', message: 'Toggle Month, Week, or Day views to browse your schedule.', position: 'bottom' },
       { target: '#cal-search', message: 'Search your tasks across all dates. Type a keyword and matching dates will light up.', position: 'bottom' },
       { target: '#share-day-btn', message: 'Tap Share day to copy the selected day\'s tasks as a quick message for your manager or team.', position: 'bottom' },
@@ -2864,6 +3037,7 @@ function getTourSteps(view) {
   if (view === 'projects') {
     return [
       topBarStep,
+      cloudStep,
       { target: '.projects-header', message: 'Start a new project or big idea here.', position: 'bottom' },
       { target: '#projects-mode', message: 'Switch between Active and Completed projects.', position: 'bottom' },
       { target: '.project-card', message: 'Each card shows progress, steps, and linked spreadsheets. Complete or delete a project with the top-right buttons.', position: 'right' },
@@ -2875,6 +3049,7 @@ function getTourSteps(view) {
   if (view === 'spreadsheets') {
     return [
       topBarStep,
+      cloudStep,
       { target: '#spreadsheets-form', message: 'Create a new spreadsheet here. You can also turn it into a dated task so it stays on your radar.', position: 'bottom' },
       { target: '.spreadsheet-tile', message: 'A tile opens the spreadsheet. If it is linked to a project, the purple Project badge opens the project.', position: 'bottom' },
       navStep,
@@ -2885,6 +3060,7 @@ function getTourSteps(view) {
   if (view === 'reports') {
     return [
       topBarStep,
+      cloudStep,
       { target: '.reports-header', message: 'Build a simple HR-style report of completed work over a date range.', position: 'bottom' },
       { target: '.reports-controls', message: 'Pick a From/To date and choose whether to include completed tasks, completed projects, or both.', position: 'bottom' },
       { target: '#download-report', message: 'Download an Excel file you can bring to a review meeting.', position: 'top' },
@@ -2896,6 +3072,7 @@ function getTourSteps(view) {
   if (view === 'deferred') {
     return [
       topBarStep,
+      cloudStep,
       { target: '#deferred-mode', message: 'Switch between Postponed tasks and the Trash Bin.', position: 'bottom' },
       { target: '#deferred-list', message: 'Postponed tasks can be restored. Trashed tasks can be permanently deleted.', position: 'bottom' },
       { target: '#clear-deferred-btn', message: 'Use Clear All to empty the current list quickly.', position: 'bottom' },
@@ -2907,6 +3084,7 @@ function getTourSteps(view) {
   if (view === 'notes') {
     return [
       topBarStep,
+      cloudStep,
       { target: '#new-idea-btn', message: 'Start a new brainstorm idea here.', position: 'right' },
       { target: '#days-rail', message: 'Your ideas are grouped by the day you created them.', position: 'right' },
       { target: '.brainstorm-canvas', message: 'Ideas for the same day are shown as connected cards.', position: 'left' },
@@ -2918,6 +3096,7 @@ function getTourSteps(view) {
 
   return [
     topBarStep,
+    cloudStep,
     { target: '.kpi-tile[data-type="today"]', message: 'Today shows tasks scheduled for today. Click the tile to expand and add tasks quickly.', position: 'right' },
     { target: '.kpi-tile[data-type="upcoming"]', message: 'Upcoming shows future tasks so you can get ahead.', position: 'right' },
     { target: '.kpi-tile[data-type="rollover"]', message: 'Rollover rate tracks overdue tasks. Keep this low to stay on track.', position: 'right' },
@@ -3071,6 +3250,7 @@ function positionTourTooltip(target, position) {
 
 function initMain() {
   initNavigation();
+  initCloudBackup();
   initCalendar();
   initProjects();
   initNotes();

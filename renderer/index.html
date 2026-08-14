@@ -32,7 +32,10 @@
             <input type="password" id="auth-confirm" placeholder="Confirm Password">
           </div>
           <button type="submit" class="primary-btn liquid-btn">Enter Onward</button>
+          <button type="button" id="auth-restore" class="secondary-btn liquid-btn">Restore from backup</button>
           <p id="auth-error" class="error-text"></p>
+          <p id="auth-restore-info" class="restore-info"></p>
+          <input type="file" id="auth-restore-file" accept=".json,application/json" style="display:none">
         </form>
       </div>
     </section>
@@ -77,8 +80,33 @@
       <main class="content">
         <div class="views-container">
           <header class="topbar glass-panel">
-            <h2 id="page-title">Dashboard</h2>
             <button id="tour-btn" class="tour-btn" title="Start a tour">?</button>
+            <h2 id="page-title">Dashboard</h2>
+            <span class="topbar-spacer"></span>
+            <div class="cloud-wrap">
+              <button id="cloud-btn" class="cloud-btn" title="Cloud sync &amp; backup">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+              </button>
+              <div id="cloud-popout" class="cloud-popout glass-card" style="display:none;">
+                <div class="cloud-popout-header">
+                  <span>Backup &amp; Sync</span>
+                  <button id="cloud-close" class="cloud-close" aria-label="Close">×</button>
+                </div>
+                <p class="cloud-msg">Multi-device and cloud sync are coming soon. Right now your data is saved only on this device.</p>
+                <p class="cloud-hint">If you wipe this device or install Onward somewhere else, your account and tasks will be gone unless you back them up.</p>
+                <div class="cloud-actions">
+                  <button id="backup-download" class="cloud-action" title="Download all data as a file">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                    Download backup
+                  </button>
+                  <button id="backup-restore" class="cloud-action" title="Restore from a backup file">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg>
+                    Restore from backup
+                  </button>
+                </div>
+                <input type="file" id="restore-file" accept=".json,application/json" style="display:none">
+              </div>
+            </div>
             <div class="user-pill glass-pill">
               <span id="current-user">@user</span>
             </div>
