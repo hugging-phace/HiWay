@@ -403,20 +403,20 @@ html[data-theme="light"] .segmented-control button:hover {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 0 0 18px 18px;
+  padding: 12px 24px 24px 24px;
   position: relative;
   scrollbar-gutter: stable;
 }
 
 .topbar {
-  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
   padding: 16px 26px;
   margin: 0 0 18px 0;
   display: flex;
   align-items: center;
   gap: 12px;
   position: sticky;
-  top: 0;
+  top: 12px;
   z-index: 5;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -2521,16 +2521,21 @@ html[data-theme="light"] .project-sheet-item:hover {
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 10px;
+}
+
+html[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.25);
+  background: rgba(99, 102, 241, 0.35);
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.45);
+  background: rgba(99, 102, 241, 0.55);
 }
 
 /* Responsive */
@@ -2612,7 +2617,7 @@ html[data-theme="light"] .project-sheet-item:hover {
 .topbar {
   position: -webkit-sticky;
   position: sticky;
-  top: 0;
+  top: 12px;
   z-index: 20;
   backdrop-filter: blur(48px) saturate(180%);
   -webkit-backdrop-filter: blur(48px) saturate(180%);
