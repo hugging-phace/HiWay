@@ -403,15 +403,15 @@ html[data-theme="light"] .segmented-control button:hover {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 18px;
-  padding-top: 0;
+  padding: 0 0 18px 18px;
   position: relative;
+  scrollbar-gutter: stable;
 }
 
 .topbar {
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   padding: 16px 26px;
-  margin: 0 -18px 18px -18px;
+  margin: 0 0 18px 0;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -2600,6 +2600,11 @@ html[data-theme="light"] .project-sheet-item:hover {
   transition: opacity 0.3s ease;
 }
 
+/* Remove the hard outer border from the main layout panels while keeping the frosted glass look */
+.topbar, .sidebar, .calendar-shell, .task-panel, .brainstorm-rail, .brainstorm-canvas, .brainstorm-editor, .reports-shell, .deferred-shell {
+  border: none;
+}
+
 .sidebar {
   position: relative;
 }
@@ -2608,7 +2613,7 @@ html[data-theme="light"] .project-sheet-item:hover {
   position: -webkit-sticky;
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 20;
   backdrop-filter: blur(48px) saturate(180%);
   -webkit-backdrop-filter: blur(48px) saturate(180%);
 }

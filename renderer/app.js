@@ -22,7 +22,8 @@ const appState = {
   deferredMode: 'postponed',
   projectMode: 'active',
   searchQuery: '',
-  activeSpreadsheet: null
+  activeSpreadsheet: null,
+  scrollPositions: {}
 };
 
 let saveTimeout;
@@ -443,6 +444,10 @@ function initCloudBackup() {
 }
 
 function switchView(view) {
+  const container = document.querySelector('.views-container');
+  if (container) {
+    appState.scrollPositions[appState.currentView] = container.scrollTop;
+  }
   appState.currentView = view;
   document.querySelectorAll('.nav-item').forEach(btn => btn.classList.toggle('active', btn.dataset.view === view));
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -456,6 +461,12 @@ function switchView(view) {
   if (view === 'deferred') renderDeferred();
   if (view === 'reports') renderReports();
   if (view === 'spreadsheets') renderSpreadsheets();
+  if (container) {
+    const saved = appState.scrollPositions[view];
+    if (saved != null) {
+      requestAnimationFrame(() => { container.scrollTop = saved; });
+    }
+  }
 }
 
 /* Dashboard */
