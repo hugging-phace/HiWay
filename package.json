@@ -1,6 +1,6 @@
 {
   "name": "hiway",
-  "version": "1.0.26",
+  "version": "1.0.27",
   "description": "Onward - futuristic task and productivity manager for Mac and Windows",
   "main": "main.js",
   "author": "hugging-phace",
@@ -32,6 +32,13 @@
     "win": {
       "target": "nsis",
       "artifactName": "${productName}-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": false,
+      "runAfterFinish": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     }
   },
   "devDependencies": {

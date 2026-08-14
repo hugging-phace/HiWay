@@ -424,12 +424,13 @@ html[data-theme="light"] .segmented-control button:hover {
   min-height: 64px;
   backdrop-filter: blur(48px) saturate(180%);
   -webkit-backdrop-filter: blur(48px) saturate(180%);
-  transition: width 0.18s ease-out, min-height 0.18s ease-out, padding 0.18s ease-out, margin 0.18s ease-out, border-radius 0.18s ease-out, gap 0.18s ease-out, opacity 0.15s ease;
+  transition: clip-path 0.08s ease-out, opacity 0.1s ease;
   box-sizing: border-box;
+  clip-path: circle(1500px at 42px 32px);
 }
 
 .topbar > * {
-  transition: opacity 0.15s ease, max-width 0.15s ease, padding 0.15s ease, margin 0.15s ease, flex 0.15s ease;
+  transition: opacity 0.1s ease, transform 0.15s ease;
   max-width: 2000px;
   overflow: hidden;
   white-space: nowrap;
@@ -442,24 +443,12 @@ html[data-theme="light"] .segmented-control button:hover {
 }
 
 .topbar.collapsed {
-  width: 44px;
-  min-height: 44px;
-  padding: 0;
-  border-radius: 999px;
-  margin: 0 0 12px 0;
-  justify-content: center;
-  align-items: center;
-  gap: 0;
-  overflow: hidden;
-  align-self: flex-start;
+  clip-path: circle(24px at 42px 32px);
+  pointer-events: none;
 }
 
 .topbar.collapsed > *:not(.tour-btn) {
   opacity: 0;
-  max-width: 0;
-  padding: 0 !important;
-  margin: 0 !important;
-  flex: 0 0 0 !important;
   pointer-events: none;
 }
 
@@ -467,8 +456,7 @@ html[data-theme="light"] .segmented-control button:hover {
   width: 32px;
   height: 32px;
   margin: 0;
-  border: none;
-  background: transparent;
+  pointer-events: auto;
 }
 
 .topbar-spacer {
@@ -992,6 +980,7 @@ html[data-theme="light"] .dashboard-detail {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1128,6 +1117,9 @@ html[data-theme="light"] .detail-project {
   border-radius: var(--radius-sm);
   cursor: pointer;
   background: rgba(255, 255, 255, 0.03);
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 html[data-theme="light"] .detail-project .project-step {
@@ -1432,6 +1424,7 @@ html[data-theme="light"] .cal-day {
   flex-direction: column;
   gap: 10px;
   overflow-y: auto;
+  overflow-x: hidden;
   flex: 1;
 }
 
@@ -1439,12 +1432,15 @@ html[data-theme="light"] .cal-day {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 14px;
+  padding: 12px 0 12px 14px;
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 html[data-theme="light"] .task-item {
@@ -1462,8 +1458,11 @@ html[data-theme="light"] .task-item {
 }
 
 .task-text {
-  flex: 1;
+  flex: 1 0 auto;
+  min-width: min-content;
   font-size: 0.95rem;
+  position: relative;
+  z-index: 1;
 }
 
 .task-item.done .task-text {
@@ -1471,20 +1470,22 @@ html[data-theme="light"] .task-item {
   opacity: 0.55;
 }
 
-.task-actions {
+.task-actions,
+.completed-actions {
   display: flex;
   align-items: center;
   gap: 8px;
-  opacity: 0.7;
-  transition: opacity 0.2s ease;
-}
-
-.task-item:hover .task-actions {
+  flex-shrink: 0;
+  position: sticky;
+  right: 0;
+  background: var(--glass);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 4px 14px 4px 8px;
   opacity: 1;
-}
-
-.task-item.done .task-actions {
-  opacity: 1;
+  z-index: 2;
 }
 
 .action-btn {
@@ -1510,12 +1511,6 @@ html[data-theme="light"] .task-item {
 .action-btn.done-btn { background: var(--success); }
 .action-btn.postpone-btn { background: var(--warning); color: #1a1d2b; }
 .action-btn.delete-btn { background: var(--danger); }
-
-.completed-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
 
 .completed-badge {
   background: rgba(34, 197, 94, 0.14);
@@ -1884,13 +1879,15 @@ html[data-theme="light"] .project-progress {
 .project-step {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
   padding: 10px;
   border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.04);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .step-footprint {
@@ -1900,9 +1897,13 @@ html[data-theme="light"] .project-progress {
   flex-shrink: 0;
 }
 
+.step-text {
+  flex: 1 0 auto;
+  min-width: min-content;
+}
+
 .project-step .task-actions,
 .project-step .completed-actions {
-  margin-left: auto;
   opacity: 0.85;
 }
 
@@ -2176,6 +2177,16 @@ html[data-theme="light"] .project-sheet-item:hover {
 .project-sheet-name:hover {
   color: #16a34a;
   text-decoration: none;
+}
+
+.project-sheet-item.newly-created {
+  animation: newProjectSheetPulse 1.3s ease-in-out;
+}
+
+@keyframes newProjectSheetPulse {
+  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.45); }
+  60% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
 }
 
 .sheet-dot {

@@ -27,6 +27,7 @@ const appState = {
 
 let saveTimeout;
 let topbarCollapseTimer = null;
+let lastCreatedSheetId = null;
 let dashboardDetailType = null;
 let dashboardDetailDate = null;
 let notesTarget = null;
@@ -392,28 +393,27 @@ function initTopbarScroll() {
   const container = document.querySelector('.views-container');
   const topbar = document.querySelector('.topbar');
   if (!container || !topbar) return;
-  let ticking = false;
+  let pending = false;
+  const update = () => {
+    pending = false;
+    const st = container.scrollTop;
+    const maxScroll = container.scrollHeight - container.clientHeight;
+    const collapsed = topbar.classList.contains('collapsed');
+    if (maxScroll <= 1) {
+      if (collapsed) topbar.classList.remove('collapsed');
+      return;
+    }
+    const collapseAt = Math.min(80, Math.max(48, Math.round(maxScroll * 0.5)));
+    const expandAt = Math.max(8, collapseAt - 32);
+    const shouldCollapse = collapsed ? st > expandAt : st >= collapseAt;
+    if (shouldCollapse !== collapsed) {
+      topbar.classList.toggle('collapsed', shouldCollapse);
+    }
+  };
   container.addEventListener('scroll', () => {
-    if (ticking) return;
-    window.requestAnimationFrame(() => {
-      const st = container.scrollTop;
-      const collapsed = topbar.classList.contains('collapsed');
-      const maxScroll = container.scrollHeight - container.clientHeight;
-      if (maxScroll < 60) {
-        if (collapsed) topbar.classList.remove('collapsed');
-        ticking = false;
-        return;
-      }
-      const collapseAt = Math.min(40, maxScroll * 0.35);
-      const expandAt = collapseAt * 0.25;
-      if (!collapsed && st > collapseAt) {
-        topbar.classList.add('collapsed');
-      } else if (collapsed && st < expandAt) {
-        topbar.classList.remove('collapsed');
-      }
-      ticking = false;
-    });
-    ticking = true;
+    if (pending) return;
+    pending = true;
+    window.requestAnimationFrame(update);
   });
 }
 
@@ -1894,10 +1894,14 @@ function addProjectSpreadsheet(projectId, title) {
   if (t) sheet.title = t;
   sheet.projectId = projectId;
   appState.data.spreadsheets.unshift(sheet);
+  lastCreatedSheetId = sheet.id;
   scheduleSave();
   renderProjects();
   renderSpreadsheets();
+  renderDashboard();
+  refreshDashboardDetail();
   refreshPeek();
+  lastCreatedSheetId = null;
 }
 
 function buildProjectCard(project, cardClass = 'project-card glass-card tilt-card') {
@@ -1989,18 +1993,29 @@ function buildProjectCard(project, cardClass = 'project-card glass-card tilt-car
     sheetList.innerHTML = `<li class="project-sheet-empty">No spreadsheets yet.</li>`;
   } else {
     projectSheets.forEach(sheet => {
+      const isNew = lastCreatedSheetId === sheet.id;
       const li = document.createElement('li');
-      li.className = 'project-sheet-item';
+      li.className = 'project-sheet-item' + (isNew ? ' newly-created' : '');
       li.innerHTML = `
         <span class="sheet-dot" aria-hidden="true">●</span>
         <span class="project-sheet-name">${escapeHtml(sheet.title || 'Untitled Spreadsheet')}</span>
         <button class="project-sheet-delete" title="Delete spreadsheet">×</button>
       `;
-      const name = li.querySelector('.project-sheet-name');
       const del = li.querySelector('.project-sheet-delete');
-      if (name) name.addEventListener('click', () => openSpreadsheet(sheet.id, true));
+      li.addEventListener('click', () => openSpreadsheet(sheet.id, true));
       if (del) del.addEventListener('click', e => { e.stopPropagation(); deleteSpreadsheet(sheet.id); });
       sheetList.appendChild(li);
+      if (isNew) {
+        requestAnimationFrame(() => {
+          const scrollContainer = li.closest('.detail-body');
+          if (scrollContainer) {
+            const liRect = li.getBoundingClientRect();
+            const containerRect = scrollContainer.getBoundingClientRect();
+            const top = liRect.top - containerRect.top + scrollContainer.scrollTop - 12;
+            scrollContainer.scrollTo({ top, behavior: 'smooth' });
+          }
+        });
+      }
     });
   }
   if (!isCompleted) {

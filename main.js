@@ -25,6 +25,7 @@ function writeJSON(file, data) {
 }
 
 const iconPath = path.join(__dirname, 'build/icon.png');
+let mainWindow = null;
 
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
@@ -49,6 +50,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false,
       allowRunningInsecureContent: false
     }
   });
@@ -58,11 +60,29 @@ function createWindow() {
 
   win.on('maximize', () => win.webContents.send('window:maximize'));
   win.on('unmaximize', () => win.webContents.send('window:unmaximize'));
+
+  mainWindow = win;
+  win.on('closed', () => { mainWindow = null; });
 }
 
-app.whenReady().then(() => {
-  createWindow();
-});
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    } else {
+      createWindow();
+    }
+  });
+
+  app.whenReady().then(() => {
+    createWindow();
+  });
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

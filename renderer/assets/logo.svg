@@ -1,11 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 80" fill="none">
   <defs>
     <linearGradient id="brandGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#6366f1"/>
-      <stop offset="100%" stop-color="#a855f7"/>
+      <stop offset="0%" stop-color="#4f46e5"/>
+      <stop offset="50%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#5e7d9f"/>
     </linearGradient>
   </defs>
-  <circle cx="36" cy="40" r="28" stroke="url(#brandGradient)" stroke-width="8" stroke-linecap="round"/>
-  <circle cx="36" cy="40" r="7" fill="url(#brandGradient)"/>
-  <path d="M70 40H92 M84 32L92 40L84 48" stroke="url(#brandGradient)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <g transform="translate(60,40) scale(1.12) translate(-50,-40)" stroke="url(#brandGradient)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="36" cy="40" r="28"/>
+    <circle cx="36" cy="40" r="7" fill="url(#brandGradient)" stroke="none"/>
+    <path d="M70 40H92 M84 32L92 40L84 48"/>
+  </g>
 </svg>
