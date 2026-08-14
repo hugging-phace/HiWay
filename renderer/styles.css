@@ -494,17 +494,17 @@ html[data-theme="light"] .segmented-control button:hover {
   width: 320px;
   padding: 20px;
   border-radius: var(--radius-lg);
-  box-shadow: 0 24px 60px rgba(0,0,0,0.22);
-  background: rgba(255, 255, 255, 0.93);
-  backdrop-filter: blur(36px) saturate(160%);
-  -webkit-backdrop-filter: blur(36px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 0 28px 70px rgba(0,0,0,0.28);
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(56px) saturate(180%);
+  -webkit-backdrop-filter: blur(56px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.85);
   z-index: 100;
 }
 
 html[data-theme="dark"] .cloud-popout {
-  background: rgba(30, 33, 48, 0.93);
-  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(24, 26, 40, 0.97);
+  border-color: rgba(255, 255, 255, 0.18);
 }
 
 .cloud-popout::before {
@@ -514,15 +514,15 @@ html[data-theme="dark"] .cloud-popout {
   right: 18px;
   width: 14px;
   height: 14px;
-  background: rgba(255, 255, 255, 0.93);
-  border-left: 1px solid rgba(255, 255, 255, 0.75);
-  border-top: 1px solid rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.97);
+  border-left: 1px solid rgba(255, 255, 255, 0.85);
+  border-top: 1px solid rgba(255, 255, 255, 0.85);
   transform: rotate(45deg);
 }
 
 html[data-theme="dark"] .cloud-popout::before {
-  background: rgba(30, 33, 48, 0.93);
-  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(24, 26, 40, 0.97);
+  border-color: rgba(255, 255, 255, 0.18);
 }
 
 .cloud-popout-header {
@@ -576,8 +576,8 @@ html[data-theme="dark"] .cloud-popout::before {
   gap: 10px;
   padding: 12px 14px;
   border-radius: var(--radius-md);
-  border: 1px solid rgba(255, 255, 255, 0.65);
-  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.75);
   color: var(--text);
   font-weight: 600;
   cursor: pointer;
@@ -585,8 +585,8 @@ html[data-theme="dark"] .cloud-popout::before {
 }
 
 html[data-theme="dark"] .cloud-action {
-  background: rgba(55, 59, 78, 0.75);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(55, 59, 78, 0.9);
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
 .cloud-action svg {
