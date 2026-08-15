@@ -263,7 +263,81 @@ function enterApp() {
 }
 
 /* Navigation */
+function updateNavPill(view) {
+  const nav = document.querySelector('.mobile-bottom-nav');
+  if (!nav) return;
+  let pill = nav.querySelector('.nav-active-pill');
+  if (!pill) {
+    pill = document.createElement('div');
+    pill.className = 'nav-active-pill';
+    nav.appendChild(pill);
+  }
+  const activeForMore = (view === 'brainstorm' || view === 'deferred' || view === 'projects');
+  nav.querySelectorAll('.nav-item').forEach(btn => {
+    const isActive = btn.dataset.view === view || (activeForMore && btn.dataset.view === 'more');
+    btn.classList.toggle('active', isActive);
+  });
+  const item = nav.querySelector(`.nav-item[data-view="${activeForMore ? 'more' : view}"]`) || nav.querySelector('.nav-item.active');
+  if (!item) return;
+  const inset = 4;
+  pill.style.width = `${item.offsetWidth - inset * 2}px`;
+  pill.style.transform = `translateX(${item.offsetLeft + inset}px)`;
+}
+
 function initNavigation() {
+  const nav = document.querySelector('.mobile-bottom-nav');
+  let pill = nav.querySelector('.nav-active-pill');
+  if (!pill) {
+    pill = document.createElement('div');
+    pill.className = 'nav-active-pill';
+    nav.appendChild(pill);
+  }
+
+  let dragging = false;
+  let activeItem = null;
+
+  const setActiveItem = item => {
+    if (!item) return;
+    activeItem = item;
+    nav.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
+    item.classList.add('active');
+    const inset = 4;
+    pill.style.width = `${item.offsetWidth - inset * 2}px`;
+    pill.style.transform = `translateX(${item.offsetLeft + inset}px)`;
+  };
+
+  const itemAtPoint = (clientX, clientY) => {
+    const el = document.elementFromPoint(clientX, clientY);
+    return el && el.closest('.nav-item');
+  };
+
+  nav.addEventListener('pointerdown', e => {
+    const item = e.target.closest('.nav-item');
+    if (!item) return;
+    dragging = true;
+    try { nav.setPointerCapture(e.pointerId); } catch (err) {}
+    pill.classList.add('dragging');
+    setActiveItem(item);
+  });
+
+  nav.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const item = itemAtPoint(e.clientX, e.clientY);
+    if (item) setActiveItem(item);
+  });
+
+  const endDrag = (clientX, clientY) => {
+    if (!dragging) return;
+    dragging = false;
+    pill.classList.remove('dragging');
+    const item = itemAtPoint(clientX, clientY) || activeItem;
+    if (item) setView(item.dataset.view);
+    activeItem = null;
+  };
+
+  nav.addEventListener('pointerup', e => endDrag(e.clientX, e.clientY));
+  nav.addEventListener('pointerleave', e => endDrag(e.clientX, e.clientY));
+
   document.querySelectorAll('.mobile-bottom-nav .nav-item').forEach(btn => {
     btn.addEventListener('click', () => setView(btn.dataset.view));
   });
@@ -272,14 +346,23 @@ function initNavigation() {
 
 function setView(view) {
   mobileState.currentView = view;
-  const activeForMore = (view === 'brainstorm' || view === 'deferred');
-  document.querySelectorAll('.mobile-bottom-nav .nav-item').forEach(btn => {
-    const isActive = btn.dataset.view === view || (activeForMore && btn.dataset.view === 'more');
-    btn.classList.toggle('active', isActive);
-  });
+  closeFlipOut();
+  updateNavPill(view);
   const content = document.getElementById('mobile-content');
   content.innerHTML = '';
   content.scrollTop = 0;
+  renderView(view, content);
+}
+
+function refreshCurrentView() {
+  updateNavPill(mobileState.currentView);
+  const content = document.getElementById('mobile-content');
+  content.innerHTML = '';
+  content.scrollTop = 0;
+  renderView(mobileState.currentView, content);
+}
+
+function renderView(view, content) {
   if (view === 'dashboard') renderDashboard(content);
   else if (view === 'calendar') renderCalendar(content);
   else if (view === 'catchup') renderCatchUp(content);
@@ -287,10 +370,6 @@ function setView(view) {
   else if (view === 'more') renderMore(content);
   else if (view === 'brainstorm') renderBrainstorm(content);
   else if (view === 'deferred') renderDeferred(content);
-}
-
-function refreshCurrentView() {
-  setView(mobileState.currentView);
 }
 
 /* Dashboard */
@@ -318,10 +397,7 @@ function renderDashboard(container) {
       ${todayTasks.map((t, i) => `
         <li class='task-item'>
           <span class='task-text ${t.done ? 'done' : ''}'>${escapeHtml(t.text)}</span>
-          <div class='task-actions'>
-            <button class='defer-btn' data-date='${today}' data-idx='${i}' title='Defer'>⧗</button>
-            <button class='done-btn' data-date='${today}' data-idx='${i}'>${t.done ? '↩' : '✓'}</button>
-          </div>
+          ${taskActionButtons(t, today, i, false)}
         </li>
       `).join('')}
     </ul>
@@ -363,23 +439,7 @@ function renderDashboard(container) {
     ` : ''}
   `;
 
-  container.querySelectorAll('.done-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const date = btn.dataset.date;
-      const idx = Number(btn.dataset.idx);
-      toggleTaskDone(date, idx);
-      renderDashboard(container);
-    });
-  });
-
-  container.querySelectorAll('.defer-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      deferTask(btn.dataset.date, Number(btn.dataset.idx));
-      renderDashboard(container);
-    });
-  });
+  bindTaskButtons(container, () => renderDashboard(container), false);
 
   container.querySelectorAll('[data-open]').forEach(tile => {
     tile.addEventListener('click', () => {
@@ -392,19 +452,153 @@ function renderDashboard(container) {
   });
 }
 
-function toggleTaskDone(date, idx) {
-  const task = mobileState.data.tasks[date][idx];
-  task.done = !task.done;
-  task.completedDate = task.done ? dateKey(new Date()) : null;
+function getNextDay(date) {
+  const d = new Date(date + 'T00:00:00');
+  d.setDate(d.getDate() + 1);
+  return dateKey(d);
+}
+
+function completeTask(date, idx) {
+  const tasks = mobileState.data.tasks[date];
+  if (!tasks || !tasks[idx]) return;
+  const task = tasks[idx];
+  if (task.done) return;
+  task.done = true;
+  task.completedDate = dateKey(new Date());
   if (task.projectId) {
     const p = getProjectById(task.projectId);
     if (p) {
       const step = p.steps.find(s => s.id === task.id);
-      if (step) step.done = task.done;
+      if (step) step.done = true;
     }
   }
   scheduleSave();
-  toast(task.done ? 'Completed' : 'Reopened');
+  toast('Completed');
+}
+
+function undoTask(date, idx) {
+  const tasks = mobileState.data.tasks[date];
+  if (!tasks || !tasks[idx]) return;
+  const task = tasks[idx];
+  if (!task.done) return;
+  task.done = false;
+  task.completedDate = null;
+  if (task.projectId) {
+    const p = getProjectById(task.projectId);
+    if (p) {
+      const step = p.steps.find(s => s.id === task.id);
+      if (step) step.done = false;
+    }
+  }
+  scheduleSave();
+  toast('Reopened');
+}
+
+function taskActionButtons(task, date, idx, includeDelete = false) {
+  if (task.done) {
+    return `
+      <div class='task-actions'>
+        <span class='completed-badge'>Completed</span>
+        <button class='action-btn undo-btn' data-date='${date}' data-idx='${idx}' title='Undo'>↩</button>
+        ${includeDelete ? `<button class='action-btn delete-btn' data-date='${date}' data-idx='${idx}' title='Delete'>×</button>` : ''}
+      </div>
+    `;
+  }
+  return `
+    <div class='task-actions'>
+      <button class='action-btn defer-btn' data-date='${date}' data-idx='${idx}' title='Defer'>⧗</button>
+      <button class='action-btn done-btn' data-date='${date}' data-idx='${idx}' title='Complete'>✓</button>
+      ${includeDelete ? `<button class='action-btn delete-btn' data-date='${date}' data-idx='${idx}' title='Delete'>×</button>` : ''}
+    </div>
+  `;
+}
+
+function bindTaskButtons(container, refreshFn, includeDelete = true) {
+  container.querySelectorAll('.done-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      completeTask(btn.dataset.date, Number(btn.dataset.idx));
+      refreshFn();
+    });
+  });
+  container.querySelectorAll('.undo-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      undoTask(btn.dataset.date, Number(btn.dataset.idx));
+      refreshFn();
+    });
+  });
+  container.querySelectorAll('.defer-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      openDeferOptions(btn.dataset.date, Number(btn.dataset.idx), refreshFn);
+    });
+  });
+  if (includeDelete) {
+    container.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        confirmDelete(btn.dataset.date, Number(btn.dataset.idx), refreshFn);
+      });
+    });
+  }
+}
+
+function openDeferOptions(date, idx, onComplete = null) {
+  const tasks = mobileState.data.tasks[date];
+  if (!tasks || !tasks[idx]) return;
+  const tomorrow = getNextDay(date);
+  const modal = document.getElementById('modal');
+  const titleEl = document.getElementById('modal-title');
+  const bodyEl = document.getElementById('modal-body');
+  const actionsEl = document.querySelector('.modal-actions');
+  const confirmBtn = document.getElementById('modal-confirm');
+
+  titleEl.textContent = 'Defer task';
+  bodyEl.innerHTML = `
+    <div class='modal-option' id='defer-tomorrow'>
+      <span>⏰</span><span>Snooze to tomorrow <strong>(${tomorrow})</strong></span>
+    </div>
+    <label class='modal-option' style='cursor:default'>
+      <span>📅</span><span>Reschedule to date:</span>
+      <input type='date' id='defer-date' value='${tomorrow}'>
+    </label>
+    <div class='modal-option' id='defer-postpone'>
+      <span>🗂</span><span>Save to Postponed list (put it aside)</span>
+    </div>
+  `;
+  confirmBtn.style.display = 'none';
+
+  const cleanup = () => {
+    confirmBtn.style.display = '';
+    bodyEl.innerHTML = '';
+    bodyEl.textContent = '';
+    modal.onclick = null;
+    modal.classList.remove('active');
+  };
+
+  const move = (targetDate, mode) => {
+    cleanup();
+    if (mode === 'postpone') {
+      deferTask(date, idx);
+    } else {
+      moveTaskToDate(date, idx, targetDate);
+    }
+    if (onComplete) onComplete();
+    else refreshCurrentView();
+  };
+
+  document.getElementById('defer-tomorrow').addEventListener('click', () => move(tomorrow, 'date'), { once: true });
+  document.getElementById('defer-postpone').addEventListener('click', () => move(null, 'postpone'), { once: true });
+  document.getElementById('defer-date').addEventListener('change', e => {
+    if (e.target.value) move(e.target.value, 'date');
+  }, { once: true });
+
+  const cancelBtn = document.getElementById('modal-cancel');
+  cancelBtn.addEventListener('click', cleanup, { once: true });
+  modal.onclick = e => { if (e.target === modal) cleanup(); };
+
+  modal.classList.add('active');
 }
 
 /* Calendar */
@@ -451,44 +645,22 @@ function openDayFlipOut(date) {
   openFlipOut({
     title: label,
     renderBody: body => {
-      if (!tasks.length) {
-        body.innerHTML = '<p class="empty-state">No tasks for this day.</p>';
-      } else {
-        body.innerHTML = `<ul class='task-list'>${tasks.map((t, i) => `
-          <li class='task-item'>
-            <span class='task-text ${t.done ? 'done' : ''}'>${escapeHtml(t.text)}</span>
-            <div class='task-actions'>
-              <button class='defer-btn' data-idx='${i}' title='Defer'>⧗</button>
-              <button class='done-btn' data-idx='${i}'>${t.done ? '↩' : '✓'}</button>
-              <button class='delete-btn' data-idx='${i}'>×</button>
-            </div>
-          </li>
-        `).join('')}</ul>`;
-      }
-      body.innerHTML += `
-        <div class='add-row'>
+      const listHtml = tasks.length ? `<ul class='task-list'>${tasks.map((t, i) => `
+        <li class='task-item'>
+          <span class='task-text ${t.done ? 'done' : ''}'>${escapeHtml(t.text)}</span>
+          ${taskActionButtons(t, date, i, true)}
+        </li>
+      `).join('')}</ul>` : '<p class="empty-state">No tasks for this day.</p>';
+
+      body.innerHTML = `
+        <div class='add-row' style='margin-bottom:14px;'>
           <input type='text' id='add-task' class='glass-input' placeholder='Add a task...'>
           <button id='add-task-btn'>+</button>
         </div>
+        ${listHtml}
       `;
 
-      body.querySelectorAll('.defer-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          deferTask(date, Number(btn.dataset.idx));
-          refreshCurrentView();
-          openDayFlipOut(date);
-        });
-      });
-      body.querySelectorAll('.done-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          toggleTaskDone(date, Number(btn.dataset.idx));
-          refreshCurrentView();
-          openDayFlipOut(date);
-        });
-      });
-      body.querySelectorAll('.delete-btn').forEach(btn => {
-        btn.addEventListener('click', () => confirmDelete(date, Number(btn.dataset.idx)));
-      });
+      bindTaskButtons(body, () => { refreshCurrentView(); openDayFlipOut(date); }, true);
       const input = body.querySelector('#add-task');
       const addBtn = body.querySelector('#add-task-btn');
       const add = () => {
@@ -523,29 +695,13 @@ function openUpcomingFlipOut() {
       body.innerHTML = `<ul class='task-list'>${upcoming.map(({ date, idx, task }) => `
         <li class='task-item'>
           <div style='flex:1;'>
-            <div class='task-text'>${escapeHtml(task.text)}</div>
+            <div class='task-text ${task.done ? 'done' : ''}'>${escapeHtml(task.text)}</div>
             <div class='catch-meta'>${formatShortDate(date)}</div>
           </div>
-          <div class='task-actions'>
-            <button class='defer-btn' data-date='${date}' data-idx='${idx}' title='Defer'>⧗</button>
-            <button class='done-btn' data-date='${date}' data-idx='${idx}'>✓</button>
-          </div>
+          ${taskActionButtons(task, date, idx, true)}
         </li>
       `).join('')}</ul>`;
-      body.querySelectorAll('.defer-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          deferTask(btn.dataset.date, Number(btn.dataset.idx));
-          refreshCurrentView();
-          openUpcomingFlipOut();
-        });
-      });
-      body.querySelectorAll('.done-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          toggleTaskDone(btn.dataset.date, Number(btn.dataset.idx));
-          refreshCurrentView();
-          openUpcomingFlipOut();
-        });
-      });
+      bindTaskButtons(body, () => { refreshCurrentView(); openUpcomingFlipOut(); }, true);
     }
   });
 }
@@ -558,7 +714,7 @@ function addTask(date, text) {
   refreshCurrentView();
 }
 
-function confirmDelete(date, idx) {
+function confirmDelete(date, idx, refreshFn = null) {
   const task = mobileState.data.tasks[date][idx];
   showModal('Move to trash?', `"${escapeHtml(task.text)}" will be moved to trash.`, () => {
     const [removed] = mobileState.data.tasks[date].splice(idx, 1);
@@ -567,8 +723,8 @@ function confirmDelete(date, idx) {
     mobileState.data.trash.push(removed);
     scheduleSave();
     toast('Moved to trash');
-    closeFlipOut();
-    refreshCurrentView();
+    if (refreshFn) refreshFn();
+    else { closeFlipOut(); refreshCurrentView(); }
   });
 }
 
@@ -614,7 +770,7 @@ function renderCatchUp(container) {
     const task = mobileState.data.tasks[date][idx];
 
     card.querySelector('.do-it').addEventListener('click', () => {
-      toggleTaskDone(date, idx);
+      completeTask(date, idx);
       renderCatchUp(container);
     });
     card.querySelector('.move-today').addEventListener('click', () => {
@@ -780,7 +936,7 @@ function openProjectFlipOut(pid) {
       project.completed = !project.completed;
       scheduleSave();
       toast(project.completed ? 'Project completed' : 'Project reactivated');
-      closeFlipOut();
+      setView('projects');
     });
   }, 50);
 }
@@ -838,6 +994,7 @@ function renderMore(container) {
   container.innerHTML = `
     <div class='section-title'>More</div>
     <ul class='more-list'>
+      <li data-item='projects'><span>◬ Projects</span><span class='icon'>›</span></li>
       <li data-item='spreadsheets'><span>▦ Spreadsheets</span><span class='icon'>›</span></li>
       <li data-item='reports'><span>▤ Reports</span><span class='icon'>›</span></li>
       <li data-item='brainstorm'><span>✦ Brainstorm</span><span class='icon'>›</span></li>
@@ -857,6 +1014,7 @@ function renderMore(container) {
       }
       if (item === 'brainstorm') return setView('brainstorm');
       if (item === 'deferred') return setView('deferred');
+      if (item === 'projects') return setView('projects');
       openPlaceholder(item);
     });
   });
@@ -1034,6 +1192,22 @@ function showModal(title, body, onConfirm) {
   cancel.addEventListener('click', close);
 }
 
+function haptic(style = 'light') {
+  if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics) {
+    try { window.Capacitor.Plugins.Haptics.impact({ style }); } catch (e) {}
+  } else if (navigator.vibrate) {
+    navigator.vibrate(15);
+  }
+}
+
+function bindGlobalHaptics() {
+  document.addEventListener('pointerdown', e => {
+    if (e.target.closest('button, [role="button"], .mobile-tile, .day-row, .catch-card, .more-list li, .note-card, .deferred-card, .modal-option')) {
+      haptic();
+    }
+  });
+}
+
 /* Boot */
 async function boot() {
   if (!window.hiwayAPI) {
@@ -1046,6 +1220,7 @@ async function boot() {
   autoRollover();
   initTheme();
   initAuth();
+  bindGlobalHaptics();
   document.getElementById('flipout').addEventListener('click', e => {
     if (e.target === document.getElementById('flipout') || e.target.classList.contains('flipout-backdrop')) closeFlipOut();
   });
