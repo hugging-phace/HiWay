@@ -279,8 +279,9 @@ function updateNavPill(view) {
   });
   const item = nav.querySelector(`.nav-item[data-view="${activeForMore ? 'more' : view}"]`) || nav.querySelector('.nav-item.active');
   if (!item) return;
-  pill.style.width = `${item.offsetWidth}px`;
-  pill.style.transform = `translateX(${item.offsetLeft}px)`;
+  const inset = 4;
+  pill.style.width = `${item.offsetWidth - inset * 2}px`;
+  pill.style.transform = `translateX(${item.offsetLeft + inset}px)`;
 }
 
 function initNavigation() {
@@ -300,8 +301,9 @@ function initNavigation() {
     activeItem = item;
     nav.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
     item.classList.add('active');
-    pill.style.width = `${item.offsetWidth}px`;
-    pill.style.transform = `translateX(${item.offsetLeft}px)`;
+    const inset = 4;
+    pill.style.width = `${item.offsetWidth - inset * 2}px`;
+    pill.style.transform = `translateX(${item.offsetLeft + inset}px)`;
   };
 
   const itemAtPoint = (clientX, clientY) => {
