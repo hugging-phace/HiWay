@@ -391,6 +391,128 @@ html[data-theme="light"] .segmented-control button:hover {
   box-shadow: 0 6px 18px rgba(99, 102, 241, 0.3);
 }
 
+.settings-icon {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+  pointer-events: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.settings-wrap {
+  position: relative;
+}
+
+.settings-popout {
+  position: absolute;
+  left: calc(100% + 16px);
+  bottom: 0;
+  width: 220px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 28px 70px rgba(0,0,0,0.28);
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(56px) saturate(180%);
+  -webkit-backdrop-filter: blur(56px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  z-index: 100;
+}
+
+html[data-theme="dark"] .settings-popout {
+  background: rgba(24, 26, 40, 0.97);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.settings-popout::before {
+  content: '';
+  position: absolute;
+  left: -7px;
+  bottom: 14px;
+  width: 14px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.97);
+  border-left: 1px solid rgba(255, 255, 255, 0.85);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.85);
+  transform: rotate(45deg);
+}
+
+html[data-theme="dark"] .settings-popout::before {
+  background: rgba(24, 26, 40, 0.97);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.settings-popout-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.settings-close {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 1.2rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.settings-close:hover {
+  background: var(--danger);
+  color: white;
+}
+
+.settings-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.settings-label {
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.settings-toggle {
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--glass);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.toggle-knob {
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.settings-toggle[data-active="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.settings-toggle[data-active="true"] .toggle-knob {
+  transform: translateX(20px);
+  background: white;
+}
+
 .content {
   flex: 1;
   display: flex;
@@ -1221,10 +1343,15 @@ html[data-theme="light"] .win-list li {
   display: none;
   flex-direction: row;
   gap: 18px;
+  min-height: 0;
 }
 
 #view-calendar.active {
   display: flex;
+  flex: 1;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
 }
 
 .calendar-shell {
@@ -1232,7 +1359,9 @@ html[data-theme="light"] .win-list li {
   padding: 22px;
   display: flex;
   flex-direction: column;
-  min-height: 600px;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
 }
 
 .calendar-controls {
@@ -1303,6 +1432,10 @@ html[data-theme="light"] .win-list li {
   grid-template-columns: repeat(7, 1fr);
   gap: 8px;
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  align-content: start;
+  scrollbar-gutter: stable;
 }
 
 .cal-header {
@@ -1406,6 +1539,9 @@ html[data-theme="light"] .cal-day {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
 }
 
 .task-input-row {
@@ -1434,6 +1570,8 @@ html[data-theme="light"] .cal-day {
   overflow-y: auto;
   overflow-x: hidden;
   flex: 1;
+  min-height: 0;
+  scrollbar-gutter: stable;
 }
 
 .task-item {
@@ -1457,6 +1595,26 @@ html[data-theme="light"] .cal-day {
   transform: translateX(4px);
   border-color: var(--accent);
   box-shadow: 0 4px 14px rgba(31, 38, 135, 0.08);
+}
+
+.task-item.done {
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.35), inset 0 0 18px rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.45);
+}
+
+.task-item.just-completed {
+  animation: completeGlow 0.8s ease;
+}
+
+@keyframes completeGlow {
+  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+  40% { box-shadow: 0 0 26px 6px rgba(34, 197, 94, 0.35), 0 0 0 2px rgba(34, 197, 94, 0.55), inset 0 0 24px rgba(34, 197, 94, 0.12); }
+  100% { box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.35), inset 0 0 18px rgba(34, 197, 94, 0.08); }
+}
+
+.task-item.drag-over {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
 }
 
 .task-item.done .task-text {
@@ -1539,6 +1697,36 @@ html[data-theme="dark"] .action-btn.delete-btn { background: rgba(239, 68, 68, 0
   border-radius: 12px;
   background: rgba(40, 167, 69, 0.12);
   color: var(--success);
+}
+
+.drag-handle {
+  flex-shrink: 0;
+  width: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  color: var(--muted);
+  opacity: 0.4;
+  transition: opacity 0.15s ease, color 0.15s ease;
+  font-size: 0.95rem;
+  line-height: 1;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.drag-handle:hover {
+  opacity: 0.8;
+  color: var(--text);
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.task-item.dragging {
+  opacity: 0.5;
 }
 
 .delete-task {

@@ -10,7 +10,8 @@ const appState = {
     postponed: [],
     trash: [],
     spreadsheets: [],
-    theme: 'light'
+    theme: 'light',
+    soundMuted: false
   },
   currentView: 'dashboard',
   calDate: new Date(),
@@ -33,6 +34,87 @@ let dashboardDetailDate = null;
 let notesTarget = null;
 let pendingRestore = null;
 let cloudPopoutOpen = false;
+let audioCtx = null;
+
+function getAudioContext() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  return audioCtx;
+}
+
+function isSoundMuted() {
+  return !!(appState.data && appState.data.soundMuted);
+}
+
+function playSound(type) {
+  if (isSoundMuted()) return;
+  try {
+    const ctx = getAudioContext();
+    if (ctx.state === 'suspended') ctx.resume();
+    const t = ctx.currentTime;
+    const master = ctx.createGain();
+    master.connect(ctx.destination);
+    master.gain.setValueAtTime(0.0001, t);
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.Q.value = 0.5;
+    filter.connect(master);
+    const osc = ctx.createOscillator();
+    osc.connect(filter);
+    let dur = 0.12;
+    switch (type) {
+      case 'click': {
+        osc.type = 'sine';
+        filter.frequency.setValueAtTime(2800, t);
+        osc.frequency.setValueAtTime(1800, t);
+        osc.frequency.exponentialRampToValueAtTime(1200, t + 0.04);
+        master.gain.linearRampToValueAtTime(0.1, t + 0.005);
+        master.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+        dur = 0.08;
+        break;
+      }
+      case 'complete': {
+        osc.type = 'sine';
+        filter.frequency.setValueAtTime(2400, t);
+        osc.frequency.setValueAtTime(523.25, t);
+        osc.frequency.setValueAtTime(659.25, t + 0.12);
+        master.gain.linearRampToValueAtTime(0.16, t + 0.02);
+        master.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+        dur = 0.6;
+        break;
+      }
+      case 'delete': {
+        osc.type = 'triangle';
+        filter.frequency.setValueAtTime(900, t);
+        osc.frequency.setValueAtTime(160, t);
+        osc.frequency.exponentialRampToValueAtTime(80, t + 0.08);
+        master.gain.linearRampToValueAtTime(0.16, t + 0.005);
+        master.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+        dur = 0.18;
+        break;
+      }
+      case 'confirm': {
+        osc.type = 'sine';
+        filter.frequency.setValueAtTime(2600, t);
+        osc.frequency.setValueAtTime(440, t);
+        osc.frequency.exponentialRampToValueAtTime(550, t + 0.15);
+        master.gain.linearRampToValueAtTime(0.14, t + 0.015);
+        master.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+        dur = 0.4;
+        break;
+      }
+      default: {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(800, t);
+        master.gain.linearRampToValueAtTime(0.1, t + 0.01);
+        master.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
+      }
+    }
+    osc.start(t);
+    osc.stop(t + dur);
+  } catch (e) {}
+}
 
 function scheduleSave() {
   clearTimeout(saveTimeout);
@@ -382,11 +464,79 @@ function logout() {
 /* Navigation */
 function initNavigation() {
   document.querySelectorAll('.nav-item').forEach(btn => {
-    btn.addEventListener('click', () => switchView(btn.dataset.view));
+    btn.addEventListener('click', () => {
+    playSound('click');
+    switchView(btn.dataset.view);
+  });
   });
 
-  document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
   document.getElementById('logout-btn').addEventListener('click', logout);
+}
+
+let settingsPopoutOpen = false;
+
+function updateSettingsUI() {
+  const themeToggle = document.getElementById('settings-theme-toggle');
+  const soundToggle = document.getElementById('settings-sound-toggle');
+  if (themeToggle) {
+    const isDark = (document.documentElement.getAttribute('data-theme') || 'light') === 'dark';
+    themeToggle.setAttribute('data-active', String(isDark));
+  }
+  if (soundToggle) {
+    soundToggle.setAttribute('data-active', String(!isSoundMuted()));
+  }
+}
+
+function initSettings() {
+  const toggle = document.getElementById('settings-toggle');
+  const popout = document.getElementById('settings-popout');
+  const closeBtn = document.getElementById('settings-close');
+  const themeToggle = document.getElementById('settings-theme-toggle');
+  const soundToggle = document.getElementById('settings-sound-toggle');
+  if (!toggle || !popout) return;
+
+  function showPopout() {
+    updateSettingsUI();
+    settingsPopoutOpen = true;
+    popout.style.display = 'block';
+    playSound('click');
+  }
+
+  function closePopout() {
+    settingsPopoutOpen = false;
+    popout.style.display = 'none';
+  }
+
+  toggle.addEventListener('click', e => {
+    e.stopPropagation();
+    if (settingsPopoutOpen) closePopout();
+    else showPopout();
+  });
+
+  if (closeBtn) closeBtn.addEventListener('click', closePopout);
+
+  if (themeToggle) {
+    themeToggle.addEventListener('click', () => {
+      toggleTheme();
+      updateSettingsUI();
+      playSound('click');
+    });
+  }
+
+  if (soundToggle) {
+    soundToggle.addEventListener('click', () => {
+      appState.data.soundMuted = !appState.data.soundMuted;
+      updateSettingsUI();
+      scheduleSave();
+      if (!isSoundMuted()) playSound('click');
+    });
+  }
+
+  document.addEventListener('click', e => {
+    if (settingsPopoutOpen && !popout.contains(e.target) && e.target !== toggle && !toggle.contains(e.target)) {
+      closePopout();
+    }
+  });
 }
 
 function initTopbarScroll() {
@@ -757,22 +907,82 @@ function bindTaskActionButtons(li, task, date, idx) {
   }
 }
 
+function bindDragReorder(li) {
+  const handle = li.querySelector('.drag-handle');
+  if (!handle) return;
+  handle.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    li.classList.add('dragging');
+    li.style.pointerEvents = 'none';
+    document.body.style.userSelect = 'none';
+    let current = li;
+    const srcDate = li.dataset.date;
+
+    const onMove = (ev) => {
+      ev.preventDefault();
+      const target = document.elementFromPoint(ev.clientX, ev.clientY)?.closest(`.task-item[data-date="${srcDate}"]`);
+      if (!target || target === current) return;
+      const rect = target.getBoundingClientRect();
+      const midpoint = rect.top + rect.height / 2;
+      if (ev.clientY < midpoint) {
+        if (current.nextElementSibling !== target) target.before(current);
+      } else {
+        if (current.previousElementSibling !== target) target.after(current);
+      }
+    };
+
+    const onUp = (ev) => {
+      li.classList.remove('dragging');
+      li.style.pointerEvents = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      const container = li.parentElement;
+      const tasks = appState.data.tasks[srcDate];
+      if (!container || !tasks) return;
+      const ordered = [...container.querySelectorAll(`.task-item[data-date="${srcDate}"]`)].filter(el => el.parentElement === container);
+      const idMap = Object.fromEntries(tasks.map(t => [t.id, t]));
+      const reordered = ordered.map(el => idMap[el.dataset.id]).filter(Boolean);
+      if (reordered.length === tasks.length) {
+        appState.data.tasks[srcDate] = reordered;
+        scheduleSave();
+        renderCalendar();
+        renderDashboard();
+        renderProjects();
+        refreshDashboardDetail();
+        refreshPeek();
+        renderTaskPanel();
+      }
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  });
+}
+
 function taskBadge(task) {
   if (task.projectId) return `<button class="task-project-badge task-badge" data-pid="${escapeHtml(task.projectId)}" title="Open project"><span class="badge-dot" aria-hidden="true">●</span><span class="badge-text">Project</span></button>`;
   if (task.spreadsheetId) return `<button class="task-spreadsheet-badge task-badge" data-sid="${escapeHtml(task.spreadsheetId)}" title="Open spreadsheet"><span class="badge-dot" aria-hidden="true">●</span><span class="badge-text">Spreadsheet</span></button>`;
   return '';
 }
 
-function buildDetailTaskItem(task, date, idx) {
+function buildDetailTaskItem(task, date, idx, allowDrag = false) {
   const li = document.createElement('li');
   li.className = 'task-item' + (task.done ? ' done' : '') + (task.projectId ? ' project-task' : '') + (task.spreadsheetId ? ' spreadsheet-task' : '');
+  li.dataset.idx = idx;
+  li.dataset.date = date;
+  li.dataset.id = task.id;
   const planted = task.plantedDate || date;
   const plantedMeta = `<span class="task-planted-meta">Planted ${formatShortDate(planted)}${planted !== date ? ` · now ${formatShortDate(date)}` : ''}</span>`;
+  const dragHandle = allowDrag ? `<span class="drag-handle" title="Drag to reorder">⋮⋮</span>` : '';
   li.innerHTML = `
+    ${dragHandle}
     <span class="task-text">${taskBadge(task)}${escapeHtml(task.text)}${plantedMeta}</span>
     ${buildTaskActions(task, date, idx)}
   `;
   bindTaskActionButtons(li, task, date, idx);
+  if (allowDrag) bindDragReorder(li);
   const badge = li.querySelector('.task-badge');
   if (badge) {
     badge.addEventListener('click', (e) => {
@@ -841,7 +1051,7 @@ function renderDashboardDetail(type, date = null) {
     if (!tasks.length) {
       bodyEl.innerHTML = '<div class="detail-empty">No tasks for this day.</div>';
     } else {
-      tasks.forEach((task, idx) => bodyEl.appendChild(buildDetailTaskItem(task, key, idx)));
+      tasks.forEach((task, idx) => bodyEl.appendChild(buildDetailTaskItem(task, key, idx, true)));
     }
     addEl.innerHTML = `
       <form class="detail-add-form">
@@ -867,7 +1077,7 @@ function renderDashboardDetail(type, date = null) {
     if (!tasks.length) {
       bodyEl.innerHTML = '<div class="detail-empty">No tasks for today yet. Add one below.</div>';
     } else {
-      tasks.forEach((task, idx) => bodyEl.appendChild(buildDetailTaskItem(task, today, idx)));
+      tasks.forEach((task, idx) => bodyEl.appendChild(buildDetailTaskItem(task, today, idx, true)));
     }
     addEl.innerHTML = `
       <form class="detail-add-form">
@@ -904,7 +1114,7 @@ function renderDashboardDetail(type, date = null) {
       group.className = 'detail-date-group';
       group.textContent = d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) + (key === today ? ' • Today' : '');
       bodyEl.appendChild(group);
-      tasks.forEach((task, idx) => bodyEl.appendChild(buildDetailTaskItem(task, key, idx)));
+      tasks.forEach((task, idx) => bodyEl.appendChild(buildDetailTaskItem(task, key, idx, true)));
     }
     if (!hasAny) bodyEl.innerHTML = '<div class="detail-empty">No tasks scheduled this week. Add one below.</div>';
 
@@ -949,7 +1159,7 @@ function renderDashboardDetail(type, date = null) {
           bodyEl.appendChild(group);
           lastDate = date;
         }
-        bodyEl.appendChild(buildDetailTaskItem(task, date, idx));
+        bodyEl.appendChild(buildDetailTaskItem(task, date, idx, false));
       });
     }
     const min = getNextDay(today);
@@ -997,7 +1207,7 @@ function renderDashboardDetail(type, date = null) {
           bodyEl.appendChild(group);
           lastDate = date;
         }
-        bodyEl.appendChild(buildDetailTaskItem(task, date, idx));
+        bodyEl.appendChild(buildDetailTaskItem(task, date, idx, false));
       });
     }
   }
@@ -1470,7 +1680,7 @@ function renderTaskPanel() {
         list.appendChild(group);
         lastDate = date;
       }
-      list.appendChild(buildDetailTaskItem(task, date, idx));
+      list.appendChild(buildDetailTaskItem(task, date, idx, false));
     });
     return;
   }
@@ -1481,7 +1691,7 @@ function renderTaskPanel() {
     list.innerHTML = '<li class="task-empty" style="color:var(--muted)">No tasks for this date. Add one above.</li>';
     return;
   }
-  tasks.forEach((task, idx) => list.appendChild(buildDetailTaskItem(task, appState.selectedDate, idx)));
+  tasks.forEach((task, idx) => list.appendChild(buildDetailTaskItem(task, appState.selectedDate, idx, true)));
 }
 
 function addTaskForSelectedDate() {
@@ -1491,6 +1701,7 @@ function addTaskForSelectedDate() {
   if (!appState.data.tasks[appState.selectedDate]) appState.data.tasks[appState.selectedDate] = [];
   appState.data.tasks[appState.selectedDate].push(createTask(text, appState.selectedDate));
   input.value = '';
+  playSound('click');
   scheduleSave();
   renderCalendar();
   renderTaskPanel();
@@ -1504,15 +1715,19 @@ function completeTask(idx) {
   task.done = true;
   task.completedDate = dateKey(new Date());
   if (task.projectId) syncStepDone(task);
-  tasks.splice(idx, 1);
-  tasks.push(task);
+  playSound('complete');
   scheduleSave();
   renderCalendar();
   renderDashboard();
   renderProjects();
   refreshDashboardDetail();
   refreshPeek();
-  openTaskNotes(appState.selectedDate, tasks.length - 1, true);
+  renderTaskPanel();
+  const completedEl = document.querySelector(`#task-list .task-item[data-idx="${idx}"][data-date="${appState.selectedDate}"], #detail-body .task-item[data-idx="${idx}"][data-date="${appState.selectedDate}"]`);
+  if (completedEl) {
+    completedEl.classList.add('just-completed');
+    setTimeout(() => completedEl.classList.remove('just-completed'), 900);
+  }
 }
 
 function undoTask(idx) {
@@ -1523,8 +1738,7 @@ function undoTask(idx) {
   task.done = false;
   task.completedDate = null;
   if (task.projectId) syncStepDone(task);
-  tasks.splice(idx, 1);
-  tasks.unshift(task);
+  playSound('click');
   scheduleSave();
   renderCalendar();
   renderDashboard();
@@ -1615,6 +1829,7 @@ function openDeleteModal(idx) {
     () => {
       const removed = removeTaskAt(idx);
       appState.data.trash.push({ id: uuid(), taskId: removed.id, text: removed.text, notes: removed.notes || '', plantedDate: removed.plantedDate || appState.selectedDate, completedDate: removed.completedDate || null, fromDate: appState.selectedDate, projectId: removed.projectId || null, spreadsheetId: removed.spreadsheetId || null, moved: new Date().toISOString() });
+      playSound('delete');
       scheduleSave();
       renderCalendar();
       renderDashboard();
@@ -1676,6 +1891,7 @@ function openPostponeModal(idx) {
       appState.data.tasks[targetDate].push(movedTask);
       updateProjectStepDate(movedTask, targetDate);
     }
+    playSound('click');
     scheduleSave();
     renderCalendar();
     renderDashboard();
@@ -1724,11 +1940,20 @@ function initDeferred() {
   });
 
   document.getElementById('clear-deferred-btn').addEventListener('click', () => {
-    if (appState.deferredMode === 'postponed') appState.data.postponed = [];
-    else appState.data.trash = [];
-    scheduleSave();
-    renderDeferred();
-    renderDashboard();
+    const isPostponed = appState.deferredMode === 'postponed';
+    openModal(
+      isPostponed ? 'Clear all postponed?' : 'Empty trash?',
+      `<p style="color:var(--muted)">${isPostponed ? 'All postponed tasks will be removed. This cannot be undone.' : 'All trashed tasks will be permanently deleted. This cannot be undone.'}</p>`,
+      isPostponed ? 'Clear All' : 'Empty Trash',
+      () => {
+        if (isPostponed) appState.data.postponed = [];
+        else appState.data.trash = [];
+        playSound('delete');
+        scheduleSave();
+        renderDeferred();
+        renderDashboard();
+      }
+    );
   });
 }
 
@@ -2459,7 +2684,10 @@ function initLiquidEffects() {
   });
 
   document.querySelectorAll('.nav-item, .cal-day, .task-item, .day-stack, .modal-option, .action-btn').forEach(el => {
-    el.addEventListener('mousedown', () => el.style.transform = 'scale(0.94)');
+    el.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.drag-handle')) return;
+      el.style.transform = 'scale(0.94)';
+    });
     el.addEventListener('mouseup', () => el.style.transform = '');
     el.addEventListener('mouseleave', () => el.style.transform = '');
   });
@@ -2521,6 +2749,7 @@ function saveTaskNotes() {
   const tasks = appState.data.tasks[notesTarget.date];
   if (!tasks || !tasks[notesTarget.idx]) return;
   tasks[notesTarget.idx].notes = document.getElementById('notes-text').value.trim();
+  playSound('confirm');
   scheduleSave();
   renderCalendar();
   renderDashboard();
@@ -3683,6 +3912,7 @@ function positionTourTooltip(target, position) {
 
 function initMain() {
   initNavigation();
+  initSettings();
   initTopbarScroll();
   initCloudBackup();
   initCalendar();
@@ -3703,7 +3933,7 @@ function initMain() {
 async function boot() {
   appState.users = await window.hiwayAPI.getUsers();
   const saved = await window.hiwayAPI.getData();
-  appState.data = Object.assign({ tasks: {}, projects: [], notes: [], postponed: [], trash: [], spreadsheets: [], theme: 'light' }, saved);
+  appState.data = Object.assign({ tasks: {}, projects: [], notes: [], postponed: [], trash: [], spreadsheets: [], theme: 'light', soundMuted: false }, saved);
   appState.data.notes.forEach(n => {
     if (!n.created) n.created = n.updated || new Date().toISOString();
   });
