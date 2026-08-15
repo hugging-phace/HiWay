@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang='en' data-theme='light'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no'>
+  <meta name='theme-color' content='#ffffff'>
+  <title>Onward Mobile</title>
+  <link rel='stylesheet' href='mobile.css'>
+</head>
+<body>
+  <div id='app'>
+    <section id='auth-screen' class='screen active'>
+      <div class='auth-card glass-card'>
+        <img src='assets/logo.svg' alt='Onward'>
+        <h1>Onward</h1>
+        <p>Plan • Track • Move</p>
+        <div class='segmented-control' id='auth-toggle'>
+          <button data-mode='login' class='active'>Log In</button>
+          <button data-mode='create'>Create Account</button>
+        </div>
+        <form id='auth-form' autocomplete='off'>
+          <input type='text' id='auth-username' placeholder='Username' required>
+          <input type='password' id='auth-password' placeholder='Password' required>
+          <input type='password' id='auth-confirm' placeholder='Confirm Password' style='display:none;'>
+          <button type='submit' class='primary-btn liquid-btn'>Enter Onward</button>
+          <p id='auth-error' class='error-text'></p>
+        </form>
+      </div>
+    </section>
+
+    <section id='main-screen' class='screen'>
+      <header class='mobile-topbar glass-panel'>
+        <div class='topbar-brand'>
+          <img src='assets/logo.svg' alt=''>
+          <span>Onward</span>
+        </div>
+        <div class='topbar-actions'>
+          <button id='theme-toggle' class='icon-btn' title='Toggle theme'>◐</button>
+          <span id='current-user' class='user-pill'>@user</span>
+        </div>
+      </header>
+      <main id='mobile-content' class='mobile-content'></main>
+      <nav class='mobile-bottom-nav glass-panel'>
+        <button data-view='dashboard' class='nav-item active'><span class='nav-icon'>◈</span><span class='nav-label'>Today</span></button>
+        <button data-view='calendar' class='nav-item'><span class='nav-icon'>◴</span><span class='nav-label'>Calendar</span></button>
+        <button data-view='catchup' class='nav-item'><span class='nav-icon'>⧗</span><span class='nav-label'>Catch Up</span></button>
+        <button data-view='projects' class='nav-item'><span class='nav-icon'>◬</span><span class='nav-label'>Projects</span></button>
+        <button data-view='more' class='nav-item'><span class='nav-icon'>⋯</span><span class='nav-label'>More</span></button>
+      </nav>
+    </section>
+  </div>
+
+  <div id='flipout' class='flipout'>
+    <div class='flipout-backdrop'></div>
+    <div class='flipout-card glass-card'>
+      <header class='flipout-header'>
+        <h2 id='flipout-title'>Detail</h2>
+        <button id='flipout-close' class='icon-btn'>×</button>
+      </header>
+      <div id='flipout-body' class='flipout-body'></div>
+      <div id='flipout-actions' class='flipout-actions'></div>
+    </div>
+  </div>
+
+  <div id='modal' class='mobile-modal'>
+    <div class='modal-card glass-card'>
+      <h3 id='modal-title'>Title</h3>
+      <p id='modal-body'></p>
+      <div class='modal-actions'>
+        <button id='modal-cancel' class='secondary-btn'>Cancel</button>
+        <button id='modal-confirm' class='primary-btn liquid-btn'>Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <div id='toast' class='mobile-toast'></div>
+
+  <script src='test-mock.js'></script>
+  <script src='mobile.js'></script>
+</body>
+</html>
