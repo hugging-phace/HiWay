@@ -602,6 +602,7 @@ function autoRollover() {
     if (!appState.data.tasks[today]) appState.data.tasks[today] = [];
     appState.data.tasks[today].push(task);
     task.plantedDate = task.plantedDate || from;
+    task.rescheduled = false;
     updateProjectStepDate(task, today);
   });
   if (moves.length) scheduleSave();
@@ -613,7 +614,7 @@ function getRolloverStats() {
   Object.entries(appState.data.tasks).forEach(([date, tasks]) => {
     tasks.forEach(task => {
       total++;
-      if (!task.done && task.plantedDate && task.plantedDate !== date) rolled++;
+      if (!task.done && task.plantedDate && task.plantedDate !== date && !task.rescheduled) rolled++;
     });
   });
   return { overdue: rolled, rate: total ? Math.round((rolled / total) * 100) : 0 };
@@ -765,10 +766,10 @@ function taskBadge(task) {
 function buildDetailTaskItem(task, date, idx) {
   const li = document.createElement('li');
   li.className = 'task-item' + (task.done ? ' done' : '') + (task.projectId ? ' project-task' : '') + (task.spreadsheetId ? ' spreadsheet-task' : '');
-  const rolled = !task.done && task.plantedDate && task.plantedDate !== date;
-  const rolledMeta = rolled ? `<span class="task-rolled-meta">Planted ${formatShortDate(task.plantedDate)} · now ${formatShortDate(date)}</span>` : '';
+  const planted = task.plantedDate || date;
+  const plantedMeta = `<span class="task-planted-meta">Planted ${formatShortDate(planted)}${planted !== date ? ` · now ${formatShortDate(date)}` : ''}</span>`;
   li.innerHTML = `
-    <span class="task-text">${taskBadge(task)}${escapeHtml(task.text)}${rolledMeta}</span>
+    <span class="task-text">${taskBadge(task)}${escapeHtml(task.text)}${plantedMeta}</span>
     ${buildTaskActions(task, date, idx)}
   `;
   bindTaskActionButtons(li, task, date, idx);
@@ -976,7 +977,7 @@ function renderDashboardDetail(type, date = null) {
     subtitleEl.textContent = overdue === 0 ? 'You are on track' : `${overdue} task${overdue === 1 ? '' : 's'} rolled over`;
     const rolledTasks = [];
     Object.entries(appState.data.tasks).forEach(([date, tasks]) => {
-      tasks.forEach((task, idx) => { if (!task.done && task.plantedDate && task.plantedDate !== date) rolledTasks.push({ date, task, idx }); });
+      tasks.forEach((task, idx) => { if (!task.done && task.plantedDate && task.plantedDate !== date && !task.rescheduled) rolledTasks.push({ date, task, idx }); });
     });
     rolledTasks.sort((a, b) => a.date.localeCompare(b.date));
     if (!rolledTasks.length) {
@@ -1595,27 +1596,28 @@ function openPostponeModal(idx) {
   const tomorrow = getNextDay(appState.selectedDate);
   const bodyHTML = `
     <div class="modal-option" id="opt-tomorrow">
-      <span>⏰</span><span>Snooze to tomorrow <strong>(${tomorrow})</strong></span>
+      <input type="radio" name="postpone-choice" value="snooze" id="postpone-snooze" checked>
+      <label for="postpone-snooze">⏰ <span>Snooze to tomorrow <strong>(${tomorrow})</strong></span></label>
     </div>
-    <label class="modal-option" style="cursor:default">
-      <span>📅</span><span>Reschedule to date:</span>
+    <div class="modal-option" id="opt-reschedule" style="cursor:default">
+      <input type="radio" name="postpone-choice" value="reschedule" id="postpone-reschedule">
+      <label for="postpone-reschedule">📅 Reschedule to date:</label>
       <input type="date" id="postpone-date" value="${tomorrow}">
-    </label>
+    </div>
     <div class="modal-option" id="opt-later">
-      <span>🗂</span><span>Save to Postponed list (revive later)</span>
+      <input type="radio" name="postpone-choice" value="postponed" id="postpone-postponed">
+      <label for="postpone-postponed">🗂 Save to Postponed list (revive later)</label>
     </div>
   `;
 
-  openModal('Defer task', bodyHTML, 'Choose', () => {}, () => {});
+  openModal('Defer task', bodyHTML, 'Move', () => {}, () => {});
 
   const overlay = document.getElementById('modal-overlay');
   const confirmBtn = document.getElementById('modal-confirm');
+  const cancelBtn = document.getElementById('modal-cancel');
   const cleanup = () => { overlay.classList.remove('active'); };
 
-  confirmBtn.onclick = null;
-  confirmBtn.style.display = 'none';
-
-  const closeAndMove = (targetDate, mode) => {
+  const closeAndMove = (targetDate, mode, rescheduled = false) => {
     cleanup();
     const removed = extractTask(idx);
     const planted = removed.plantedDate || appState.selectedDate;
@@ -1635,6 +1637,7 @@ function openPostponeModal(idx) {
     } else {
       if (!appState.data.tasks[targetDate]) appState.data.tasks[targetDate] = [];
       const movedTask = createTask(removed.text, targetDate, removed.notes || '', planted, removed.id, removed.projectId || null, removed.done, removed.completedDate, removed.spreadsheetId || null);
+      movedTask.rescheduled = rescheduled;
       appState.data.tasks[targetDate].push(movedTask);
       updateProjectStepDate(movedTask, targetDate);
     }
@@ -1647,16 +1650,30 @@ function openPostponeModal(idx) {
     refreshPeek();
   };
 
-  document.getElementById('opt-tomorrow').addEventListener('click', () => closeAndMove(tomorrow, 'date'));
-  document.getElementById('opt-later').addEventListener('click', () => closeAndMove(null, 'postponed'));
-  document.getElementById('postpone-date').addEventListener('change', e => {
-    if (e.target.value) closeAndMove(e.target.value, 'date');
-  });
+  const onConfirm = () => {
+    const choice = document.querySelector('input[name="postpone-choice"]:checked');
+    if (!choice) return;
+    if (choice.value === 'postponed') {
+      closeAndMove(null, 'postponed');
+    } else if (choice.value === 'snooze') {
+      closeAndMove(tomorrow, 'date', false);
+    } else if (choice.value === 'reschedule') {
+      const target = document.getElementById('postpone-date').value;
+      if (target) closeAndMove(target, 'date', true);
+    }
+  };
 
-  // If modal is closed without action, default to tomorrow
-  const cancelBtn = document.getElementById('modal-cancel');
-  cancelBtn.onclick = () => { cleanup(); closeAndMove(tomorrow, 'date'); };
-  overlay.onclick = e => { if (e.target === overlay) { cleanup(); closeAndMove(tomorrow, 'date'); } };
+  confirmBtn.onclick = () => { onConfirm(); };
+  cancelBtn.onclick = () => { cleanup(); };
+  overlay.onclick = e => { if (e.target === overlay) { cleanup(); } };
+
+  const dateInput = document.getElementById('postpone-date');
+  dateInput.addEventListener('focus', () => { document.getElementById('postpone-reschedule').checked = true; });
+  dateInput.addEventListener('change', () => { document.getElementById('postpone-reschedule').checked = true; });
+
+  document.getElementById('opt-tomorrow').addEventListener('click', (e) => { if (e.target !== dateInput) document.getElementById('postpone-snooze').checked = true; });
+  document.getElementById('opt-reschedule').addEventListener('click', (e) => { if (e.target !== dateInput) document.getElementById('postpone-reschedule').checked = true; });
+  document.getElementById('opt-later').addEventListener('click', (e) => { if (e.target !== dateInput) document.getElementById('postpone-postponed').checked = true; });
 }
 
 /* Deferred */
