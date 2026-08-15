@@ -1583,9 +1583,9 @@ function renderWeek(body, query = '') {
 }
 
 function buildDayRing(tasks, size = 36) {
-  const maxSlots = 12;
-  const stroke = 2;
-  const radius = (size - stroke) / 2 - 7;
+  const maxSlots = 8;
+  const stroke = 3;
+  const radius = (size - stroke) / 2 - 5;
   const cx = size / 2;
   const cy = size / 2;
   const circumference = 2 * Math.PI * radius;
@@ -1602,7 +1602,7 @@ function buildDayRing(tasks, size = 36) {
     return `<svg viewBox="0 0 ${size} ${size}" class="day-ring-svg">${track}<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="${activeColor}" stroke-width="${stroke}" transform="rotate(-90 ${cx} ${cy})" /></svg>`;
   }
 
-  const arcAngle = slotAngle * 0.22;
+  const arcAngle = slotAngle * 0.35;
   const arcLen = (circumference * arcAngle) / 360;
   const gap = circumference - arcLen;
 

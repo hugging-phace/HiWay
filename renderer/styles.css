@@ -598,28 +598,7 @@ html[data-theme="dark"] .settings-popout::before {
 }
 
 .win-controls {
-  display: none;
-}
-
-.platform-win32 .topbar {
-  -webkit-app-region: drag;
-  app-region: drag;
-}
-
-.platform-win32 .topbar .tour-btn,
-.platform-win32 .topbar .cloud-wrap,
-.platform-win32 .topbar .user-pill,
-.platform-win32 .topbar .win-controls,
-.platform-win32 .topbar .win-btn {
-  -webkit-app-region: no-drag;
-  app-region: no-drag;
-}
-
-.platform-win32 .win-controls {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  margin: 0 -12px 0 8px;
+  display: none !important;
 }
 
 .win-btn {
@@ -1516,9 +1495,9 @@ html[data-theme="light"] .cal-day {
   z-index: 1;
 }
 
-.cal-day .day-ring {
+.day-ring {
   position: absolute;
-  inset: 4px;
+  inset: 0;
 }
 
 .day-ring-svg {
@@ -4026,14 +4005,7 @@ html[data-theme="light"] .peek-overlay {
 
 /* v1.0.26 additions */
 
-/* Use native Windows title bar overlay controls; hide the custom ones */
-.platform-win32 .win-controls {
-  display: none !important;
-}
 
-.platform-win32 .topbar {
-  padding-right: 140px;
-}
 
 /* Project add-sheet inline form */
 .project-add-sheet-form {
