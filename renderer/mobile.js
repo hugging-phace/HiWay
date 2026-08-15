@@ -693,10 +693,10 @@ function openUpcomingFlipOut() {
             <div class='task-text ${task.done ? 'done' : ''}'>${escapeHtml(task.text)}</div>
             <div class='catch-meta'>${formatShortDate(date)}</div>
           </div>
-          ${taskActionButtons(task, date, idx, false)}
+          ${taskActionButtons(task, date, idx, true)}
         </li>
       `).join('')}</ul>`;
-      bindTaskButtons(body, () => { refreshCurrentView(); openUpcomingFlipOut(); }, false);
+      bindTaskButtons(body, () => { refreshCurrentView(); openUpcomingFlipOut(); }, true);
     }
   });
 }
