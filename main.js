@@ -29,19 +29,19 @@ let mainWindow = null;
 
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-  const isWin = process.platform === 'win32';
+  const isMac = process.platform === 'darwin';
   const win = new BrowserWindow({
     width: Math.min(1400, width - 100),
     height: Math.min(900, height - 100),
     minWidth: 1000,
     minHeight: 700,
     title: 'Onward',
-    titleBarStyle: isWin ? 'hidden' : 'default',
+    titleBarStyle: 'default',
     trafficLightPosition: undefined,
     transparent: false,
-    frame: !isWin,
-    roundedCorners: isWin ? true : undefined,
-    titleBarOverlay: isWin ? { color: '#0b0c15', symbolColor: '#ffffff', height: 46 } : false,
+    frame: true,
+    roundedCorners: true,
+    titleBarOverlay: false,
     autoHideMenuBar: true,
     backgroundColor: '#0b0c15',
     show: false,
@@ -138,8 +138,10 @@ ipcMain.handle('api:isMaximized', (event) => {
 
 ipcMain.handle('api:setTitleBarOverlay', (event, options) => {
   const win = BrowserWindow.fromWebContents(event.sender);
-  if (win && process.platform === 'win32' && win.setTitleBarOverlay) {
-    win.setTitleBarOverlay(options);
-  }
+  try {
+    if (win && process.platform === 'win32' && win.setTitleBarOverlay) {
+      win.setTitleBarOverlay(options);
+    }
+  } catch (e) {}
   return true;
 });
