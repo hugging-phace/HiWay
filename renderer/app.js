@@ -1052,6 +1052,15 @@ function bindTaskActionButtons(li, task, date, idx) {
       playSound('delete');
     });
   });
+  const recurringMeta = li.querySelector('.recurring-meta-link');
+  if (recurringMeta) {
+    recurringMeta.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const rid = recurringMeta.dataset.rid;
+      const rec = (appState.data.recurring || []).find(r => r.id === rid);
+      if (rec) openRecurringDetails(rec);
+    });
+  }
 }
 
 function bindDragReorder(li) {
@@ -1142,7 +1151,9 @@ function buildDetailTaskItem(task, date, idx, allowDrag = false, fromUpcoming = 
   li.dataset.fromUpcoming = fromUpcoming;
   let meta = '';
   if (task.recurringId) {
-    meta = `<span class="task-recurring-meta task-meta">↻ Recurring ${escapeHtml(task.frequency || '')}</span>`;
+    const rec = (appState.data.recurring || []).find(r => r.id === task.recurringId);
+    const freqText = rec ? recurringMetaText(rec) : (task.frequency || '');
+    meta = `<span class="task-recurring-meta task-meta recurring-meta-link" data-rid="${escapeHtml(task.recurringId)}" title="View recurring details">↻ Recurring ${escapeHtml(freqText)}</span>`;
   } else {
     const planted = task.plantedDate || date;
     meta = `<span class="task-planted-meta task-meta">Planted ${formatShortDate(planted)}${planted !== date ? ` · now ${formatShortDate(date)}` : ''}</span>`;
@@ -1989,7 +2000,7 @@ function openModal(title, bodyHTML, confirmText = 'Confirm', onConfirm, onCancel
   const overlay = document.getElementById('modal-overlay');
   const card = document.getElementById('modal-card');
   card.classList.remove('wide');
-  document.querySelectorAll('.modal-actions > .recurring-delete-btn').forEach(b => b.remove());
+  document.querySelectorAll('.modal-actions > .recurring-delete-btn, .modal-actions > .recurring-edit-btn').forEach(b => b.remove());
   document.getElementById('modal-title').textContent = title;
   const body = document.getElementById('modal-body');
   body.innerHTML = bodyHTML;

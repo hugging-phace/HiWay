@@ -4494,8 +4494,65 @@ html[data-theme="dark"] .subtask-actions .subtask-delete { background: rgba(239,
 
 .task-recurring-meta {
   color: var(--accent);
+  cursor: pointer;
+}
+
+.recurring-meta-link:hover {
+  text-decoration: underline;
+  opacity: 0.85;
 }
 
 .task-planted-meta {
   color: var(--muted);
+}
+
+.recurring-details {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.recurring-details h4 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--text);
+}
+
+.recurring-details .recurring-sop {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+.recurring-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.9rem;
+}
+
+.recurring-detail-row label {
+  color: var(--muted);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.recurring-detail-row span {
+  color: var(--text);
+  text-align: right;
+  min-width: 0;
+}
+
+.recurring-detail-subtasks ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.recurring-detail-subtasks li {
+  margin-bottom: 4px;
 }
