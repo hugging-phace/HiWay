@@ -1,5 +1,7 @@
 /* Recurring tasks for Onward */
 const RECURRING_RANGE_DAYS = 120;
+const WEEKDAY_LABELS = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+const WEEKDAY_TITLES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
 function getRecurringDateRange() {
   const today = new Date();
@@ -64,6 +66,70 @@ function frequencyLabel(cycle) {
   return cycle;
 }
 
+function recurringMetaText(rec) {
+  if (!rec || !rec.cycle) return '';
+  const ord = n => {
+    const s = ['th','st','nd','rd'];
+    const v = n % 100;
+    return s[(v - 20) % 10] || s[v] || s[0];
+  };
+  const start = rec.startDate ? new Date(rec.startDate + 'T00:00:00') : null;
+  const monthName = (d, len = 'short') => d.toLocaleDateString('en-US', { month: len });
+  if (rec.cycle === 'daily') return 'every day';
+  if (rec.cycle === 'weekly' && start) return `every ${WEEKDAY_TITLES[start.getDay()]}`;
+  if (rec.cycle === 'monthly' && start) return `monthly on the ${start.getDate()}${ord(start.getDate())}`;
+  if (rec.cycle === 'yearly' && start) return `yearly on ${monthName(start)} ${start.getDate()}`;
+  if (rec.cycle === 'custom') {
+    if (rec.customWeekdays && rec.customWeekdays.length) {
+      const days = [...rec.customWeekdays].sort((a,b) => a - b).map(d => WEEKDAY_TITLES[d]).join(', ');
+      return `every ${days}`;
+    }
+    if (rec.customDates && rec.customDates.length) return `${rec.customDates.length} selected dates`;
+    return 'Custom';
+  }
+  return frequencyLabel(rec.cycle);
+}
+
+function formatRecurringDateShort(date) {
+  if (!date) return '';
+  const d = new Date(date + 'T00:00:00');
+  if (isNaN(d.getTime())) return date;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function openRecurringDetails(rec) {
+  if (!rec) return;
+  const next = nextRecurringOccurrence(rec);
+  const days = rec.customWeekdays && rec.customWeekdays.length
+    ? [...rec.customWeekdays].sort((a, b) => a - b).map(d => WEEKDAY_TITLES[d]).join(', ')
+    : '';
+  const reminderParts = [];
+  if (rec.reminders?.before) reminderParts.push('the day before');
+  if (rec.reminders?.dayOf) reminderParts.push('the day of');
+  const bodyHTML = `
+    <div class="recurring-details">
+      <h4>${escapeHtml(rec.title || 'Untitled recurring')}</h4>
+      ${rec.sop ? `<p class="recurring-sop">${escapeHtml(rec.sop)}</p>` : ''}
+      <div class="recurring-detail-row"><label>Frequency</label><span>${escapeHtml(recurringMetaText(rec))}</span></div>
+      <div class="recurring-detail-row"><label>Start</label><span>${formatRecurringDateShort(rec.startDate)}</span></div>
+      ${rec.endDate ? `<div class="recurring-detail-row"><label>End</label><span>${formatRecurringDateShort(rec.endDate)}</span></div>` : ''}
+      ${next ? `<div class="recurring-detail-row"><label>Next up</label><span>${formatRecurringDateShort(next)}</span></div>` : ''}
+      ${(rec.subtasks || []).length ? `<div class="recurring-detail-subtasks"><label>Subtasks</label><ul>${rec.subtasks.map(s => `<li>${escapeHtml(s.text)}</li>`).join('')}</ul></div>` : ''}
+      ${reminderParts.length ? `<div class="recurring-detail-row"><label>Reminders</label><span>${escapeHtml(reminderParts.join(', '))}</span></div>` : ''}
+    </div>
+  `;
+  openModal('Recurring details', bodyHTML, 'Close', () => {}, () => {});
+  const actions = document.querySelector('.modal-actions');
+  if (actions) {
+    const editBtn = document.createElement('button');
+    editBtn.className = 'secondary-btn recurring-edit-btn';
+    editBtn.textContent = 'Edit';
+    editBtn.style.marginRight = 'auto';
+    editBtn.addEventListener('click', () => { document.getElementById('modal-cancel').click(); openRecurringEditor(rec); });
+    actions.prepend(editBtn);
+  }
+}
+
 function createRecurringTaskInstance(rec, instanceDate) {
   const subtasks = (rec.subtasks || []).map(s => ({ id: uuid(), text: s.text, done: false }));
   const task = createTask(rec.title, instanceDate, rec.sop || '', instanceDate, null, null, false, null, null);
@@ -93,7 +159,24 @@ function syncRecurringInstances() {
       if (!appState.data.tasks[key]) appState.data.tasks[key] = [];
       appState.data.tasks[key].push(createRecurringTaskInstance(rec, key));
     }
+    syncRecurringSubtasksToInstances(rec);
   }
+}
+
+function syncRecurringSubtasksToInstances(rec) {
+  const template = (rec.subtasks || []).map(s => s.text);
+  Object.values(appState.data.tasks || {}).forEach(list => {
+    list.forEach(t => {
+      if (t.recurringId !== rec.id) return;
+      const existing = (t.subtasks || []);
+      const filtered = existing.filter(s => template.includes(s.text));
+      const existingTexts = filtered.map(s => s.text);
+      template.forEach(text => {
+        if (!existingTexts.includes(text)) filtered.push({ id: uuid(), text, done: false });
+      });
+      t.subtasks = filtered;
+    });
+  });
 }
 
 function nextRecurringOccurrence(rec) {
@@ -158,9 +241,6 @@ function checkRecurringReminders() {
     }
   });
 }
-
-const WEEKDAY_LABELS = ['Su','Mo','Tu','We','Th','Fr','Sa'];
-const WEEKDAY_TITLES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
 function openRecurringEditor(rec = null) {
   playSound('open');
