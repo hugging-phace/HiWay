@@ -1348,6 +1348,39 @@ function renderWeek(body, query = '') {
   }
 }
 
+function buildDayRing(tasks, size = 36) {
+  const maxSlots = 8;
+  const stroke = 3;
+  const radius = (size - stroke) / 2 - 2;
+  const cx = size / 2;
+  const cy = size / 2;
+  const circumference = 2 * Math.PI * radius;
+  const slotAngle = 360 / maxSlots;
+  const count = Math.min(tasks.length, maxSlots);
+  if (count === 0) return '';
+
+  const allDone = tasks.every(t => t.done);
+  const full = tasks.length >= maxSlots;
+  const arcAngle = full ? slotAngle : slotAngle * 0.65;
+  const arcLen = (circumference * arcAngle) / 360;
+  const gap = circumference - arcLen;
+  const activeColor = full
+    ? (allDone ? 'var(--success)' : 'var(--accent)')
+    : null;
+
+  let arcs = '';
+  for (let i = 0; i < count; i++) {
+    const t = tasks[i];
+    const color = full ? activeColor : (t.done ? 'var(--success)' : 'var(--accent)');
+    const startAngle = (i * slotAngle - arcAngle / 2 + 360) % 360;
+    const offset = -(circumference * ((270 + startAngle) % 360) / 360);
+    arcs += `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${arcLen.toFixed(2)} ${gap.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}" transform="rotate(-90 ${cx} ${cy})" />`;
+  }
+
+  const track = `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="var(--accent)" stroke-width="${stroke}" opacity="0.12" transform="rotate(-90 ${cx} ${cy})" />`;
+  return `<svg viewBox="0 0 ${size} ${size}" class="day-ring-svg">${track}${arcs}</svg>`;
+}
+
 function renderDay(body, query = '') {
   body.style.gridTemplateColumns = '1fr';
   body.appendChild(createDayCell(appState.calDate, false, true, true, query));
@@ -1368,25 +1401,20 @@ function createDayCell(date, otherMonth, isWeek = false, isDay = false, query = 
   if (query && !hasMatch) cell.classList.add('search-dim');
   if (isDay) cell.style.aspectRatio = 'auto';
 
+  const marker = document.createElement('div');
+  marker.className = 'day-marker';
+
+  const ring = document.createElement('div');
+  ring.className = 'day-ring';
+  ring.innerHTML = buildDayRing(tasks);
+  marker.appendChild(ring);
+
   const num = document.createElement('span');
   num.className = 'day-number';
   num.textContent = date.getDate();
-  cell.appendChild(num);
+  marker.appendChild(num);
 
-  const dots = document.createElement('div');
-  dots.className = 'day-dots';
-  tasks.slice(0, 5).forEach(t => {
-    const dot = document.createElement('span');
-    dot.className = 'day-dot ' + (t.done ? 'done' : '');
-    dots.appendChild(dot);
-  });
-  if (tasks.length > 5) {
-    const more = document.createElement('span');
-    more.style.cssText = 'font-size:9px;color:var(--muted);';
-    more.textContent = '+' + (tasks.length - 5);
-    dots.appendChild(more);
-  }
-  cell.appendChild(dots);
+  cell.appendChild(marker);
 
   if (isWeek || isDay) {
     const label = document.createElement('div');

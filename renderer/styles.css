@@ -1364,31 +1364,39 @@ html[data-theme="light"] .cal-day {
   opacity: 0.35;
 }
 
-.cal-day.search-dim .day-dot,
-.cal-day.search-dim .day-number {
-  opacity: 0.5;
+.cal-day .day-marker {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
 }
 
 .cal-day .day-number {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
+  line-height: 1;
+  z-index: 1;
 }
 
-.cal-day .day-dots {
-  display: flex;
-  gap: 3px;
-  margin-top: 6px;
+.cal-day .day-ring {
+  position: absolute;
+  inset: 0;
 }
 
-.day-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
+.day-ring-svg {
+  width: 100%;
+  height: 100%;
 }
 
-.day-dot.done {
-  background: var(--success);
+.cal-day.search-dim .day-marker {
+  opacity: 0.5;
 }
 
 .task-panel {
