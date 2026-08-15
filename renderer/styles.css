@@ -1432,24 +1432,23 @@ html[data-theme="light"] .cal-day {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 0 12px 14px;
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.04);
+  padding: 14px 16px;
+  border-radius: 20px;
+  background: var(--glass);
   border: 1px solid var(--border);
   cursor: pointer;
-  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   position: relative;
   overflow-x: auto;
   overflow-y: hidden;
-}
-
-html[data-theme="light"] .task-item {
-  background: rgba(255, 255, 255, 0.45);
+  box-shadow: 0 1px 4px rgba(31, 38, 135, 0.04);
+  min-height: 56px;
 }
 
 .task-item:hover {
   transform: translateX(4px);
   border-color: var(--accent);
+  box-shadow: 0 4px 14px rgba(31, 38, 135, 0.08);
 }
 
 .task-item.done .task-text {
