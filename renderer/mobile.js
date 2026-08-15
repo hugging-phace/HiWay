@@ -272,8 +272,10 @@ function initNavigation() {
 
 function setView(view) {
   mobileState.currentView = view;
+  const activeForMore = (view === 'brainstorm' || view === 'deferred');
   document.querySelectorAll('.mobile-bottom-nav .nav-item').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.view === view);
+    const isActive = btn.dataset.view === view || (activeForMore && btn.dataset.view === 'more');
+    btn.classList.toggle('active', isActive);
   });
   const content = document.getElementById('mobile-content');
   content.innerHTML = '';
@@ -283,6 +285,12 @@ function setView(view) {
   else if (view === 'catchup') renderCatchUp(content);
   else if (view === 'projects') renderProjects(content);
   else if (view === 'more') renderMore(content);
+  else if (view === 'brainstorm') renderBrainstorm(content);
+  else if (view === 'deferred') renderDeferred(content);
+}
+
+function refreshCurrentView() {
+  setView(mobileState.currentView);
 }
 
 /* Dashboard */
@@ -311,6 +319,7 @@ function renderDashboard(container) {
         <li class='task-item'>
           <span class='task-text ${t.done ? 'done' : ''}'>${escapeHtml(t.text)}</span>
           <div class='task-actions'>
+            <button class='defer-btn' data-date='${today}' data-idx='${i}' title='Defer'>⧗</button>
             <button class='done-btn' data-date='${today}' data-idx='${i}'>${t.done ? '↩' : '✓'}</button>
           </div>
         </li>
@@ -360,6 +369,14 @@ function renderDashboard(container) {
       const date = btn.dataset.date;
       const idx = Number(btn.dataset.idx);
       toggleTaskDone(date, idx);
+      renderDashboard(container);
+    });
+  });
+
+  container.querySelectorAll('.defer-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      deferTask(btn.dataset.date, Number(btn.dataset.idx));
       renderDashboard(container);
     });
   });
@@ -441,6 +458,7 @@ function openDayFlipOut(date) {
           <li class='task-item'>
             <span class='task-text ${t.done ? 'done' : ''}'>${escapeHtml(t.text)}</span>
             <div class='task-actions'>
+              <button class='defer-btn' data-idx='${i}' title='Defer'>⧗</button>
               <button class='done-btn' data-idx='${i}'>${t.done ? '↩' : '✓'}</button>
               <button class='delete-btn' data-idx='${i}'>×</button>
             </div>
@@ -454,9 +472,17 @@ function openDayFlipOut(date) {
         </div>
       `;
 
+      body.querySelectorAll('.defer-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          deferTask(date, Number(btn.dataset.idx));
+          refreshCurrentView();
+          openDayFlipOut(date);
+        });
+      });
       body.querySelectorAll('.done-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           toggleTaskDone(date, Number(btn.dataset.idx));
+          refreshCurrentView();
           openDayFlipOut(date);
         });
       });
@@ -501,13 +527,22 @@ function openUpcomingFlipOut() {
             <div class='catch-meta'>${formatShortDate(date)}</div>
           </div>
           <div class='task-actions'>
+            <button class='defer-btn' data-date='${date}' data-idx='${idx}' title='Defer'>⧗</button>
             <button class='done-btn' data-date='${date}' data-idx='${idx}'>✓</button>
           </div>
         </li>
       `).join('')}</ul>`;
+      body.querySelectorAll('.defer-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          deferTask(btn.dataset.date, Number(btn.dataset.idx));
+          refreshCurrentView();
+          openUpcomingFlipOut();
+        });
+      });
       body.querySelectorAll('.done-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           toggleTaskDone(btn.dataset.date, Number(btn.dataset.idx));
+          refreshCurrentView();
           openUpcomingFlipOut();
         });
       });
@@ -520,6 +555,7 @@ function addTask(date, text) {
   mobileState.data.tasks[date].push(createTask(text, date));
   scheduleSave();
   toast('Task added');
+  refreshCurrentView();
 }
 
 function confirmDelete(date, idx) {
@@ -532,7 +568,21 @@ function confirmDelete(date, idx) {
     scheduleSave();
     toast('Moved to trash');
     closeFlipOut();
+    refreshCurrentView();
   });
+}
+
+function deferTask(date, idx) {
+  const tasks = mobileState.data.tasks[date];
+  if (!tasks || !tasks[idx]) return;
+  const [task] = tasks.splice(idx, 1);
+  if (tasks.length === 0) delete mobileState.data.tasks[date];
+  if (!mobileState.data.postponed) mobileState.data.postponed = [];
+  task.deferredFrom = date;
+  task.deferredAt = dateKey(new Date());
+  mobileState.data.postponed.unshift(task);
+  scheduleSave();
+  toast('Deferred');
 }
 
 /* Catch Up */
@@ -805,9 +855,114 @@ function renderMore(container) {
         document.getElementById('auth-screen').classList.add('active');
         return;
       }
+      if (item === 'brainstorm') return setView('brainstorm');
+      if (item === 'deferred') return setView('deferred');
       openPlaceholder(item);
     });
   });
+}
+
+function addNote(text) {
+  if (!mobileState.data.notes) mobileState.data.notes = [];
+  mobileState.data.notes.unshift({ id: uuid(), text: text.trim(), created: dateKey(new Date()) });
+  scheduleSave();
+}
+
+function deleteNote(idx) {
+  mobileState.data.notes.splice(idx, 1);
+  scheduleSave();
+}
+
+function renderBrainstorm(container) {
+  const notes = mobileState.data.notes || [];
+  container.innerHTML = `
+    <div class='section-title'>Brainstorm</div>
+    <div class='add-row'>
+      <input type='text' id='new-note' class='glass-input' placeholder='Add a quick thought...'>
+      <button id='add-note-btn'>+</button>
+    </div>
+    ${notes.length ? `<div class='notes-list'>${notes.map((n, i) => `
+      <div class='note-card'>
+        <p>${escapeHtml(n.text)}</p>
+        <button class='note-delete' data-idx='${i}'>×</button>
+      </div>
+    `).join('')}</div>` : `<div class='mobile-tile'><p class='empty-state'>No notes yet. Jot one down.</p></div>`}
+    <button class='secondary-btn' id='back-from-brainstorm' style='margin-top:16px;width:100%;'>Back</button>
+  `;
+
+  const input = container.querySelector('#new-note');
+  container.querySelector('#add-note-btn').addEventListener('click', () => {
+    const text = input.value.trim();
+    if (!text) return;
+    addNote(text);
+    input.value = '';
+    renderBrainstorm(container);
+  });
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') container.querySelector('#add-note-btn').click(); });
+  container.querySelectorAll('.note-delete').forEach(btn => {
+    btn.addEventListener('click', () => {
+      deleteNote(Number(btn.dataset.idx));
+      renderBrainstorm(container);
+    });
+  });
+  container.querySelector('#back-from-brainstorm').addEventListener('click', () => setView('more'));
+}
+
+function restoreDeferred(idx) {
+  const list = mobileState.data.postponed;
+  if (!list || !list[idx]) return;
+  const [task] = list.splice(idx, 1);
+  const today = dateKey(new Date());
+  if (!mobileState.data.tasks[today]) mobileState.data.tasks[today] = [];
+  task.deferredAt = null;
+  mobileState.data.tasks[today].push(task);
+  scheduleSave();
+  toast('Restored to today');
+}
+
+function deleteDeferred(idx) {
+  const list = mobileState.data.postponed;
+  if (!list || !list[idx]) return;
+  const [removed] = list.splice(idx, 1);
+  removed.deletedFrom = 'deferred';
+  mobileState.data.trash.push(removed);
+  scheduleSave();
+  toast('Deleted');
+}
+
+function renderDeferred(container) {
+  const list = mobileState.data.postponed || [];
+  container.innerHTML = `
+    <div class='section-title'>Deferred</div>
+    <p class='subtle-text' style='margin-bottom:16px;'>Tasks you've put off for later.</p>
+    ${list.length ? `<div class='deferred-list'>${list.map((t, i) => `
+      <div class='deferred-card'>
+        <div style='flex:1;'>
+          <div class='deferred-text'>${escapeHtml(t.text)}</div>
+          <div class='catch-meta'>Deferred ${formatShortDate(t.deferredAt || t.deferredFrom)}</div>
+        </div>
+        <div class='task-actions'>
+          <button class='restore-btn' data-idx='${i}' title='Move to today'>↩</button>
+          <button class='delete-btn' data-idx='${i}'>×</button>
+        </div>
+      </div>
+    `).join('')}</div>` : `<div class='mobile-tile'><p class='empty-state'>No deferred tasks. Keep up the momentum.</p></div>`}
+    <button class='secondary-btn' id='back-from-deferred' style='margin-top:16px;width:100%;'>Back</button>
+  `;
+
+  container.querySelectorAll('.restore-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      restoreDeferred(Number(btn.dataset.idx));
+      renderDeferred(container);
+    });
+  });
+  container.querySelectorAll('.delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      deleteDeferred(Number(btn.dataset.idx));
+      renderDeferred(container);
+    });
+  });
+  container.querySelector('#back-from-deferred').addEventListener('click', () => setView('more'));
 }
 
 function openPlaceholder(name) {
