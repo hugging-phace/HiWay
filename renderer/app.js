@@ -1009,15 +1009,47 @@ function bindTaskActionButtons(li, task, date, idx) {
     const undoBtn = li.querySelector('.undo-btn');
     if (undoBtn) undoBtn.addEventListener('click', () => undoTaskForDate(date, idx));
   }
-  li.querySelectorAll('.task-subtasks input[type="checkbox"]').forEach(cb => {
-    cb.addEventListener('change', () => {
-      const sid = cb.dataset.sid;
+  li.querySelectorAll('.subtask-complete').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const sid = btn.dataset.sid;
       const sub = (task.subtasks || []).find(s => s.id === sid);
       if (sub) {
-        sub.done = cb.checked;
-        cb.parentElement.classList.toggle('done', cb.checked);
+        sub.done = !sub.done;
+        const item = btn.closest('.subtask-item');
+        if (item) item.classList.toggle('done', sub.done);
+        btn.textContent = sub.done ? '↩' : '✓';
+        btn.title = sub.done ? 'Undo' : 'Complete';
+        btn.classList.toggle('done', sub.done);
         scheduleSave();
       }
+    });
+  });
+  li.querySelectorAll('.subtask-delete').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const sid = btn.dataset.sid;
+      const sub = (task.subtasks || []).find(s => s.id === sid);
+      if (!sub) return;
+      const text = sub.text;
+      if (task.recurringId) {
+        const rec = (appState.data.recurring || []).find(r => r.id === task.recurringId);
+        if (rec && rec.subtasks) rec.subtasks = rec.subtasks.filter(s => s.text !== text);
+        Object.values(appState.data.tasks || {}).forEach(list => {
+          list.forEach(t => {
+            if (t.recurringId === task.recurringId && t.subtasks) {
+              t.subtasks = t.subtasks.filter(s => s.text !== text);
+            }
+          });
+        });
+      } else {
+        task.subtasks = (task.subtasks || []).filter(s => s.id !== sid);
+      }
+      scheduleSave();
+      renderCalendar();
+      renderDashboard();
+      refreshDashboardDetail();
+      playSound('delete');
     });
   });
 }
@@ -1110,15 +1142,18 @@ function buildDetailTaskItem(task, date, idx, allowDrag = false, fromUpcoming = 
   li.dataset.fromUpcoming = fromUpcoming;
   let meta = '';
   if (task.recurringId) {
-    meta = `<span class="task-recurring-meta">↻ Recurring ${escapeHtml(task.frequency || '')}</span>`;
+    meta = `<span class="task-recurring-meta task-meta">↻ Recurring ${escapeHtml(task.frequency || '')}</span>`;
   } else {
     const planted = task.plantedDate || date;
-    meta = `<span class="task-planted-meta">Planted ${formatShortDate(planted)}${planted !== date ? ` · now ${formatShortDate(date)}` : ''}</span>`;
+    meta = `<span class="task-planted-meta task-meta">Planted ${formatShortDate(planted)}${planted !== date ? ` · now ${formatShortDate(date)}` : ''}</span>`;
   }
   const dragHandle = allowDrag ? `<span class="drag-handle" title="Drag to reorder">⋮⋮</span>` : '';
   li.innerHTML = `
     ${dragHandle}
-    <span class="task-text">${taskBadge(task)}${escapeHtml(task.text)}${meta}</span>
+    <div class="task-main">
+      <div class="task-text">${taskBadge(task)}${escapeHtml(task.text)}</div>
+      ${meta}
+    </div>
     ${buildTaskActions(task, date, idx)}
   `;
   const subtasksHtml = buildRecurringSubtasksHTML(task.subtasks);
@@ -1953,6 +1988,8 @@ function openModal(title, bodyHTML, confirmText = 'Confirm', onConfirm, onCancel
   playSound('open');
   const overlay = document.getElementById('modal-overlay');
   const card = document.getElementById('modal-card');
+  card.classList.remove('wide');
+  document.querySelectorAll('.modal-actions > .recurring-delete-btn').forEach(b => b.remove());
   document.getElementById('modal-title').textContent = title;
   const body = document.getElementById('modal-body');
   body.innerHTML = bodyHTML;

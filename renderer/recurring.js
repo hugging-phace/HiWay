@@ -15,6 +15,10 @@ function recurringMatchesDate(rec, key) {
   if (key < rec.startDate) return false;
   if (rec.endDate && key > rec.endDate) return false;
   if (rec.cycle === 'custom') {
+    if (rec.customWeekdays && rec.customWeekdays.length) {
+      const d = new Date(key + 'T00:00:00');
+      return rec.customWeekdays.includes(d.getDay());
+    }
     return (rec.customDates || []).includes(key);
   }
   const d = new Date(key + 'T00:00:00');
@@ -120,7 +124,15 @@ function checkRecurringMoveConflict(task, targetDate) {
 
 function buildRecurringSubtasksHTML(subtasks = []) {
   if (!subtasks.length) return '';
-  return '<div class="task-subtasks">' + subtasks.map(s => `<label class="subtask-item${s.done ? ' done' : ''}"><input type="checkbox" data-sid="${s.id}" ${s.done ? 'checked' : ''}> <span>${escapeHtml(s.text)}</span></label>`).join('') + '</div>';
+  return '<div class="task-subtasks">' + subtasks.map(s => `
+    <div class="subtask-item${s.done ? ' done' : ''}" data-sid="${s.id}">
+      <span class="subtask-text">${escapeHtml(s.text)}</span>
+      <div class="subtask-actions">
+        <button type="button" class="action-btn subtask-complete" data-sid="${s.id}" title="${s.done ? 'Undo' : 'Complete'}">${s.done ? '↩' : '✓'}</button>
+        <button type="button" class="action-btn subtask-delete" data-sid="${s.id}" title="Delete subtask">×</button>
+      </div>
+    </div>
+  `).join('') + '</div>';
 }
 
 function checkRecurringReminders() {
@@ -147,29 +159,36 @@ function checkRecurringReminders() {
   });
 }
 
+const WEEKDAY_LABELS = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+const WEEKDAY_TITLES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
 function openRecurringEditor(rec = null) {
   playSound('open');
   const isNew = !rec;
-  const editing = rec || { id: uuid(), title: '', sop: '', cycle: 'weekly', startDate: dateKey(new Date()), endDate: '', customDates: [], subtasks: [], reminders: { before: false, dayOf: false }, created: new Date().toISOString() };
+  const editing = rec || { id: uuid(), title: '', sop: '', cycle: 'weekly', startDate: dateKey(new Date()), endDate: '', customWeekdays: [], customDates: [], subtasks: [], reminders: { before: false, dayOf: false }, created: new Date().toISOString() };
   const titleId = 'rec-title';
   let subtasks = (editing.subtasks || []).map(s => ({ id: s.id || uuid(), text: s.text }));
-  let customDates = [...(editing.customDates || [])];
+  let customWeekdays = [...(editing.customWeekdays || [])];
+  if (editing.cycle === 'custom' && editing.customDates && editing.customDates.length && !customWeekdays.length) {
+    customWeekdays = [...new Set(editing.customDates.map(d => {
+      const dt = new Date(d + 'T00:00:00');
+      return isNaN(dt.getTime()) ? null : dt.getDay();
+    }).filter(v => v !== null))];
+  }
 
   function cycleHtml() {
     const cycles = ['daily', 'weekly', 'monthly', 'yearly', 'custom'];
     return '<div class="recurring-cycle-options">' + cycles.map(c => `<label><input type="radio" name="rec-cycle" value="${c}" ${editing.cycle === c ? 'checked' : ''}> ${frequencyLabel(c)}</label>`).join('') + '</div>';
   }
 
-  function customDatesHtml() {
+  function customDaysHtml() {
     if (editing.cycle !== 'custom') return '';
     return `
       <div>
-        <label>Custom dates</label>
-        <div class="recurring-subtask-input" style="margin-top:6px">
-          <input type="date" id="rec-custom-date">
-          <button type="button" id="rec-add-custom-date">Add</button>
+        <label>Custom days</label>
+        <div class="recurring-weekdays">
+          ${[0,1,2,3,4,5,6].map(d => `<button type="button" class="recurring-weekday ${customWeekdays.includes(d) ? 'active' : ''}" data-day="${d}" title="${WEEKDAY_TITLES[d]}">${WEEKDAY_LABELS[d]}</button>`).join('')}
         </div>
-        <div class="recurring-dates-list" id="rec-custom-dates-list">${customDates.map(d => `<div class="recurring-chip" data-date="${d}">${formatShortDate(d)} <button type="button" class="rec-remove-date">×</button></div>`).join('')}</div>
       </div>
     `;
   }
@@ -178,9 +197,9 @@ function openRecurringEditor(rec = null) {
     return `
       <div>
         <label>Subtasks (appear on each occurrence)</label>
-        <div class="recurring-subtask-input" style="margin-top:6px">
-          <input type="text" id="rec-subtask-input" placeholder="Add a subtask...">
-          <button type="button" id="rec-add-subtask">Add</button>
+        <div class="recurring-subtask-input">
+          <input type="text" id="rec-subtask-input" class="glass-input" placeholder="Add a subtask...">
+          <button type="button" id="rec-add-subtask" class="liquid-btn">Add</button>
         </div>
         <div class="recurring-subtasks-list" id="rec-subtasks-list">${subtasks.map((s, i) => `<div class="recurring-chip" data-idx="${i}">${escapeHtml(s.text)} <button type="button" class="rec-remove-subtask">×</button></div>`).join('')}</div>
       </div>
@@ -195,15 +214,15 @@ function openRecurringEditor(rec = null) {
         <label>Cycle</label>
         ${cycleHtml()}
       </div>
-      <div style="display:flex;gap:12px">
-        <div style="flex:1"><label>Start date</label><input type="date" id="rec-start-date" class="glass-input" value="${editing.startDate}"></div>
-        <div style="flex:1"><label>End date (optional)</label><input type="date" id="rec-end-date" class="glass-input" value="${editing.endDate || ''}"></div>
-      </div>
-      <div id="rec-custom-dates-section"></div>
+      <div id="rec-custom-days-section"></div>
       <div id="rec-subtasks-section"></div>
       <div class="recurring-reminders">
         <label><input type="checkbox" id="rec-remind-before" ${editing.reminders?.before ? 'checked' : ''}> Remind me the day before</label>
         <label><input type="checkbox" id="rec-remind-day" ${editing.reminders?.dayOf ? 'checked' : ''}> Remind me the day of</label>
+      </div>
+      <div class="recurring-dates-row">
+        <div><label>Start date</label><input type="date" id="rec-start-date" class="glass-input" value="${editing.startDate}"></div>
+        <div><label>End date (optional)</label><input type="date" id="rec-end-date" class="glass-input" value="${editing.endDate || ''}"></div>
       </div>
     </div>
   `;
@@ -214,11 +233,11 @@ function openRecurringEditor(rec = null) {
   const overlay = document.getElementById('modal-overlay');
   const confirmBtn = document.getElementById('modal-confirm');
   const cancelBtn = document.getElementById('modal-cancel');
-  const cleanup = () => { overlay.classList.remove('active'); if (card) card.classList.remove('wide'); };
+  const cleanup = () => { overlay.classList.remove('active'); if (card) card.classList.remove('wide'); document.querySelectorAll('.recurring-delete-btn').forEach(b => b.remove()); };
 
   function renderEditor() {
-    const customSection = document.getElementById('rec-custom-dates-section');
-    if (customSection) customSection.innerHTML = customDatesHtml();
+    const customSection = document.getElementById('rec-custom-days-section');
+    if (customSection) customSection.innerHTML = customDaysHtml();
     const subSection = document.getElementById('rec-subtasks-section');
     if (subSection) subSection.innerHTML = subtasksHtml();
     bindEditor();
@@ -240,27 +259,18 @@ function openRecurringEditor(rec = null) {
       input.value = '';
       renderEditor();
     };
-    const addDate = document.getElementById('rec-add-custom-date');
-    if (addDate) addDate.onclick = () => {
-      const input = document.getElementById('rec-custom-date');
-      const d = input.value;
-      if (!d || customDates.includes(d)) return;
-      customDates.push(d);
-      customDates.sort();
-      input.value = '';
-      renderEditor();
-    };
     document.querySelectorAll('#rec-subtasks-list .rec-remove-subtask').forEach((btn, i) => {
       btn.addEventListener('click', () => {
         subtasks.splice(i, 1);
         renderEditor();
       });
     });
-    document.querySelectorAll('#rec-custom-dates-list .rec-remove-date').forEach(btn => {
+    document.querySelectorAll('.recurring-weekday').forEach(btn => {
       btn.addEventListener('click', () => {
-        const chip = btn.closest('.recurring-chip');
-        const d = chip && chip.dataset.date;
-        if (d) { customDates = customDates.filter(x => x !== d); renderEditor(); }
+        const d = parseInt(btn.dataset.day, 10);
+        if (customWeekdays.includes(d)) customWeekdays = customWeekdays.filter(x => x !== d);
+        else customWeekdays.push(d);
+        renderEditor();
       });
     });
   }
@@ -272,12 +282,14 @@ function openRecurringEditor(rec = null) {
     const cycle = document.querySelector('input[name="rec-cycle"]:checked')?.value || 'weekly';
     const startDate = document.getElementById('rec-start-date').value;
     if (!startDate) { document.getElementById('rec-start-date').focus(); return; }
+    if (cycle === 'custom' && !customWeekdays.length) { document.querySelector('.recurring-weekday')?.focus(); return; }
     editing.title = title;
     editing.sop = document.getElementById('rec-sop').value.trim();
     editing.cycle = cycle;
     editing.startDate = startDate;
     editing.endDate = document.getElementById('rec-end-date').value || null;
-    editing.customDates = cycle === 'custom' ? [...customDates].sort() : [];
+    editing.customWeekdays = cycle === 'custom' ? [...customWeekdays].sort((a,b) => a - b) : [];
+    editing.customDates = [];
     editing.subtasks = subtasks.map(s => ({ id: s.id || uuid(), text: s.text }));
     editing.reminders = {
       before: document.getElementById('rec-remind-before')?.checked || false,
@@ -315,17 +327,18 @@ function openRecurringEditor(rec = null) {
   cancelBtn.onclick = () => { cleanup(); };
   overlay.onclick = e => { if (e.target === overlay) { cleanup(); } };
 
-  document.getElementById(titleId).focus();
-  renderEditor();
-
+  document.querySelectorAll('.recurring-delete-btn').forEach(b => b.remove());
   if (!isNew) {
     const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'secondary-btn';
+    deleteBtn.className = 'secondary-btn recurring-delete-btn';
     deleteBtn.textContent = 'Delete';
     deleteBtn.style.marginRight = 'auto';
     deleteBtn.addEventListener('click', deleteRecurring);
     document.querySelector('.modal-actions')?.prepend(deleteBtn);
   }
+
+  document.getElementById(titleId).focus();
+  renderEditor();
 }
 
 function renderRecurring() {
