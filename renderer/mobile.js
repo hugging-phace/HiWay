@@ -272,7 +272,7 @@ function updateNavPill(view) {
     pill.className = 'nav-active-pill';
     nav.appendChild(pill);
   }
-  const activeForMore = (view === 'brainstorm' || view === 'deferred');
+  const activeForMore = (view === 'brainstorm' || view === 'deferred' || view === 'projects');
   nav.querySelectorAll('.nav-item').forEach(btn => {
     const isActive = btn.dataset.view === view || (activeForMore && btn.dataset.view === 'more');
     btn.classList.toggle('active', isActive);
@@ -344,10 +344,23 @@ function initNavigation() {
 
 function setView(view) {
   mobileState.currentView = view;
+  closeFlipOut();
   updateNavPill(view);
   const content = document.getElementById('mobile-content');
   content.innerHTML = '';
   content.scrollTop = 0;
+  renderView(view, content);
+}
+
+function refreshCurrentView() {
+  updateNavPill(mobileState.currentView);
+  const content = document.getElementById('mobile-content');
+  content.innerHTML = '';
+  content.scrollTop = 0;
+  renderView(mobileState.currentView, content);
+}
+
+function renderView(view, content) {
   if (view === 'dashboard') renderDashboard(content);
   else if (view === 'calendar') renderCalendar(content);
   else if (view === 'catchup') renderCatchUp(content);
@@ -355,10 +368,6 @@ function setView(view) {
   else if (view === 'more') renderMore(content);
   else if (view === 'brainstorm') renderBrainstorm(content);
   else if (view === 'deferred') renderDeferred(content);
-}
-
-function refreshCurrentView() {
-  setView(mobileState.currentView);
 }
 
 /* Dashboard */
@@ -461,8 +470,6 @@ function completeTask(date, idx) {
       if (step) step.done = true;
     }
   }
-  tasks.splice(idx, 1);
-  tasks.push(task);
   scheduleSave();
   toast('Completed');
 }
@@ -481,8 +488,6 @@ function undoTask(date, idx) {
       if (step) step.done = false;
     }
   }
-  tasks.splice(idx, 1);
-  tasks.unshift(task);
   scheduleSave();
   toast('Reopened');
 }
@@ -531,7 +536,7 @@ function bindTaskButtons(container, refreshFn, includeDelete = true) {
     container.querySelectorAll('.delete-btn').forEach(btn => {
       btn.addEventListener('click', e => {
         e.stopPropagation();
-        confirmDelete(btn.dataset.date, Number(btn.dataset.idx));
+        confirmDelete(btn.dataset.date, Number(btn.dataset.idx), refreshFn);
       });
     });
   }
@@ -638,21 +643,19 @@ function openDayFlipOut(date) {
   openFlipOut({
     title: label,
     renderBody: body => {
-      if (!tasks.length) {
-        body.innerHTML = '<p class="empty-state">No tasks for this day.</p>';
-      } else {
-        body.innerHTML = `<ul class='task-list'>${tasks.map((t, i) => `
-          <li class='task-item'>
-            <span class='task-text ${t.done ? 'done' : ''}'>${escapeHtml(t.text)}</span>
-            ${taskActionButtons(t, date, i, true)}
-          </li>
-        `).join('')}</ul>`;
-      }
-      body.innerHTML += `
-        <div class='add-row'>
+      const listHtml = tasks.length ? `<ul class='task-list'>${tasks.map((t, i) => `
+        <li class='task-item'>
+          <span class='task-text ${t.done ? 'done' : ''}'>${escapeHtml(t.text)}</span>
+          ${taskActionButtons(t, date, i, true)}
+        </li>
+      `).join('')}</ul>` : '<p class="empty-state">No tasks for this day.</p>';
+
+      body.innerHTML = `
+        <div class='add-row' style='margin-bottom:14px;'>
           <input type='text' id='add-task' class='glass-input' placeholder='Add a task...'>
           <button id='add-task-btn'>+</button>
         </div>
+        ${listHtml}
       `;
 
       bindTaskButtons(body, () => { refreshCurrentView(); openDayFlipOut(date); }, true);
@@ -709,7 +712,7 @@ function addTask(date, text) {
   refreshCurrentView();
 }
 
-function confirmDelete(date, idx) {
+function confirmDelete(date, idx, refreshFn = null) {
   const task = mobileState.data.tasks[date][idx];
   showModal('Move to trash?', `"${escapeHtml(task.text)}" will be moved to trash.`, () => {
     const [removed] = mobileState.data.tasks[date].splice(idx, 1);
@@ -718,8 +721,8 @@ function confirmDelete(date, idx) {
     mobileState.data.trash.push(removed);
     scheduleSave();
     toast('Moved to trash');
-    closeFlipOut();
-    refreshCurrentView();
+    if (refreshFn) refreshFn();
+    else { closeFlipOut(); refreshCurrentView(); }
   });
 }
 
@@ -931,7 +934,7 @@ function openProjectFlipOut(pid) {
       project.completed = !project.completed;
       scheduleSave();
       toast(project.completed ? 'Project completed' : 'Project reactivated');
-      closeFlipOut();
+      setView('projects');
     });
   }, 50);
 }
@@ -989,6 +992,7 @@ function renderMore(container) {
   container.innerHTML = `
     <div class='section-title'>More</div>
     <ul class='more-list'>
+      <li data-item='projects'><span>◬ Projects</span><span class='icon'>›</span></li>
       <li data-item='spreadsheets'><span>▦ Spreadsheets</span><span class='icon'>›</span></li>
       <li data-item='reports'><span>▤ Reports</span><span class='icon'>›</span></li>
       <li data-item='brainstorm'><span>✦ Brainstorm</span><span class='icon'>›</span></li>
@@ -1008,6 +1012,7 @@ function renderMore(container) {
       }
       if (item === 'brainstorm') return setView('brainstorm');
       if (item === 'deferred') return setView('deferred');
+      if (item === 'projects') return setView('projects');
       openPlaceholder(item);
     });
   });
