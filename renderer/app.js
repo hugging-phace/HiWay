@@ -502,7 +502,8 @@ function switchView(view) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   const target = document.getElementById('view-' + view);
   if (target) target.classList.add('active');
-  document.getElementById('page-title').textContent = view.charAt(0).toUpperCase() + view.slice(1);
+  const viewTitles = { dashboard: 'Overview', calendar: 'Calendar', projects: 'Projects', notes: 'Brainstorm', reports: 'Reports', spreadsheets: 'Spreadsheets', deferred: 'Deferred' };
+  document.getElementById('page-title').textContent = viewTitles[view] || (view.charAt(0).toUpperCase() + view.slice(1));
   if (view === 'dashboard') renderDashboard();
   if (view === 'calendar') renderCalendar();
   if (view === 'projects') renderProjects();
@@ -725,6 +726,7 @@ function buildTaskActions(task, date, idx) {
         <span class="completed-badge">Completed</span>
         <button class="notes-btn ${task.notes ? 'has-notes' : ''}" title="Notes">${notesLabel}</button>
         <button class="action-btn undo-btn" title="Undo">↩</button>
+        <button class="action-btn delete-btn" title="Delete">×</button>
       </div>
     `;
   }
@@ -732,7 +734,7 @@ function buildTaskActions(task, date, idx) {
     <div class="task-actions">
       <button class="notes-btn ${task.notes ? 'has-notes' : ''}" title="Notes">${notesLabel}</button>
       <button class="action-btn done-btn" title="Complete">✓</button>
-      <button class="action-btn postpone-btn" title="Postpone">↻</button>
+      <button class="action-btn defer-btn" title="Defer">⧗</button>
       <button class="action-btn delete-btn" title="Delete">×</button>
     </div>
   `;
@@ -741,13 +743,13 @@ function buildTaskActions(task, date, idx) {
 function bindTaskActionButtons(li, task, date, idx) {
   const notesBtn = li.querySelector('.notes-btn');
   if (notesBtn) notesBtn.addEventListener('click', () => openTaskNotes(date, idx));
+  const deleteBtn = li.querySelector('.delete-btn');
+  if (deleteBtn) deleteBtn.addEventListener('click', () => openDeleteModalForDate(date, idx));
   if (!task.done) {
     const doneBtn = li.querySelector('.done-btn');
-    const postponeBtn = li.querySelector('.postpone-btn');
-    const deleteBtn = li.querySelector('.delete-btn');
+    const deferBtn = li.querySelector('.defer-btn');
     if (doneBtn) doneBtn.addEventListener('click', () => completeTaskForDate(date, idx));
-    if (postponeBtn) postponeBtn.addEventListener('click', () => openPostponeModalForDate(date, idx));
-    if (deleteBtn) deleteBtn.addEventListener('click', () => openDeleteModalForDate(date, idx));
+    if (deferBtn) deferBtn.addEventListener('click', () => openPostponeModalForDate(date, idx));
   } else {
     const undoBtn = li.querySelector('.undo-btn');
     if (undoBtn) undoBtn.addEventListener('click', () => undoTaskForDate(date, idx));
@@ -1604,7 +1606,7 @@ function openPostponeModal(idx) {
     </div>
   `;
 
-  openModal('Postpone task', bodyHTML, 'Choose', () => {}, () => {});
+  openModal('Defer task', bodyHTML, 'Choose', () => {}, () => {});
 
   const overlay = document.getElementById('modal-overlay');
   const confirmBtn = document.getElementById('modal-confirm');
