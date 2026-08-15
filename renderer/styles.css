@@ -327,6 +327,7 @@ html[data-theme="light"] .segmented-control button:hover {
   flex: 1;
   overflow-y: auto;
   min-height: 0;
+  padding: 0 16px;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -349,13 +350,11 @@ html[data-theme="light"] .segmented-control button:hover {
   font-weight: 600;
   transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
   position: relative;
-  overflow: hidden;
 }
 
 .nav-item:hover {
   color: var(--text);
   background: rgba(255, 255, 255, 0.08);
-  transform: translateX(4px);
 }
 
 .nav-item.active {

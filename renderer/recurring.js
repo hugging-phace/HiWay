@@ -45,10 +45,9 @@ function recurringMatchesDate(rec, key) {
 }
 
 function findRecurringInstance(recId, instanceDate) {
-  for (const [date, list] of Object.entries(appState.data.tasks || {})) {
-    for (const t of list) {
-      if (t.recurringId === recId && t.recurringInstanceDate === instanceDate) return { task: t, date };
-    }
+  const list = appState.data.tasks[instanceDate] || [];
+  for (const t of list) {
+    if (t.recurringId === recId && t.recurringInstanceDate === instanceDate) return { task: t, date: instanceDate };
   }
   return null;
 }
@@ -148,6 +147,19 @@ function syncRecurringInstances() {
   const endD = new Date(end + 'T00:00:00');
   for (const rec of recs) {
     if (!rec.startDate) continue;
+
+    // Remove schedule-driven occurrences that no longer fit the updated schedule,
+    // but keep manually moved/snoozed instances (recurringInstanceDate !== their current date).
+    Object.keys(appState.data.tasks || {}).forEach(date => {
+      if (!appState.data.tasks[date]) return;
+      appState.data.tasks[date] = appState.data.tasks[date].filter(t => {
+        if (t.recurringId !== rec.id) return true;
+        if (t.recurringInstanceDate && t.recurringInstanceDate !== date) return true;
+        return recurringMatchesDate(rec, date);
+      });
+      if (!appState.data.tasks[date].length) delete appState.data.tasks[date];
+    });
+
     const recStart = new Date(rec.startDate + 'T00:00:00');
     const rangeStart = recStart > startD ? recStart : startD;
     const rangeEnd = rec.endDate ? new Date(rec.endDate + 'T00:00:00') : endD;
