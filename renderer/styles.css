@@ -1315,16 +1315,16 @@ html[data-theme="light"] .win-list li {
 }
 
 .cal-day {
-  aspect-ratio: 1 / 0.9;
-  border-radius: var(--radius-md);
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.04);
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  padding-top: 8px;
+  justify-content: center;
+  padding: 6px;
   transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
   position: relative;
   overflow: hidden;

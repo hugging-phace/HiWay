@@ -1349,8 +1349,8 @@ function renderWeek(body, query = '') {
 }
 
 function buildDayRing(tasks, size = 36) {
-  const maxSlots = 8;
-  const stroke = 3;
+  const maxSlots = 12;
+  const stroke = 2.5;
   const radius = (size - stroke) / 2 - 2;
   const cx = size / 2;
   const cy = size / 2;
@@ -1361,7 +1361,7 @@ function buildDayRing(tasks, size = 36) {
 
   const allDone = tasks.every(t => t.done);
   const full = tasks.length >= maxSlots;
-  const arcAngle = full ? slotAngle : slotAngle * 0.65;
+  const arcAngle = full ? slotAngle : slotAngle * 0.45;
   const arcLen = (circumference * arcAngle) / 360;
   const gap = circumference - arcLen;
   const activeColor = full
@@ -1399,18 +1399,25 @@ function createDayCell(date, otherMonth, isWeek = false, isDay = false, query = 
   if (key === appState.selectedDate) cell.classList.add('selected');
   if (hasMatch) cell.classList.add('search-match');
   if (query && !hasMatch) cell.classList.add('search-dim');
-  if (isDay) cell.style.aspectRatio = 'auto';
+  const ringSize = isDay ? 64 : 36;
+  if (isDay) {
+    cell.style.maxWidth = '160px';
+    cell.style.margin = '0 auto';
+  }
 
   const marker = document.createElement('div');
   marker.className = 'day-marker';
+  marker.style.width = ringSize + 'px';
+  marker.style.height = ringSize + 'px';
 
   const ring = document.createElement('div');
   ring.className = 'day-ring';
-  ring.innerHTML = buildDayRing(tasks);
+  ring.innerHTML = buildDayRing(tasks, ringSize);
   marker.appendChild(ring);
 
   const num = document.createElement('span');
   num.className = 'day-number';
+  num.style.fontSize = isDay ? '1.4rem' : '';
   num.textContent = date.getDate();
   marker.appendChild(num);
 
