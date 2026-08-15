@@ -1,7 +1,15 @@
 // Browser-only mock for hiwayAPI when testing outside Electron
+const rawUsers = JSON.parse(localStorage.getItem('hiway-users') || '{}');
+let rawData = JSON.parse(localStorage.getItem('hiway-data') || '{}');
+
+// Mirror main.js: if the stored data is a legacy flat user object, wrap it.
+if (rawData && (typeof rawData.tasks !== 'undefined' || typeof rawData.projects !== 'undefined' || rawData.theme)) {
+  rawData = { _legacy: rawData };
+}
+
 const mockStorage = {
-  users: JSON.parse(localStorage.getItem('hiway-users') || '{}'),
-  data: JSON.parse(localStorage.getItem('hiway-data') || '{"tasks":{},"projects":[],"notes":[],"postponed":[],"trash":[],"spreadsheets":[],"theme":"light"}')
+  users: rawUsers,
+  data: rawData && Object.keys(rawData).length ? rawData : {}
 };
 
 if (!window.hiwayAPI) {
@@ -13,6 +21,7 @@ if (!window.hiwayAPI) {
     saveData: async (data) => { mockStorage.data = data; localStorage.setItem('hiway-data', JSON.stringify(data)); return true; },
     windowAction: () => true,
     isMaximized: async () => false,
-    setTitleBarOverlay: () => true
+    setTitleBarOverlay: () => true,
+    showNotification: async () => true
   };
 }

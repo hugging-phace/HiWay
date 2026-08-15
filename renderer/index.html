@@ -67,6 +67,9 @@
           <button data-view="spreadsheets" class="nav-item">
             <span class="nav-icon">▦</span><span class="nav-label">Spreadsheets</span>
           </button>
+          <button data-view="recurring" class="nav-item">
+            <span class="nav-icon">↻</span><span class="nav-label">Recurring</span>
+          </button>
           <button data-view="deferred" class="nav-item">
             <span class="nav-icon">⧗</span><span class="nav-label">Deferred</span>
           </button>
@@ -309,6 +312,17 @@
           </div>
         </div>
 
+        <!-- Recurring -->
+        <div id="view-recurring" class="view">
+          <div class="recurring-shell">
+            <div class="recurring-header">
+              <h2>Recurring Tasks</h2>
+              <button id="new-recurring-btn" class="primary-btn liquid-btn">+ New Recurring Task</button>
+            </div>
+            <div id="recurring-list" class="recurring-list"></div>
+          </div>
+        </div>
+
         <!-- Deferred -->
         <div id="view-deferred" class="view">
           <div class="deferred-shell glass-card">
@@ -423,6 +437,7 @@
   <script src="../node_modules/@litejs/zip/zip.js"></script>
   <script src="../node_modules/@litejs/xlsx/xlsx.js"></script>
   <script src="test-mock.js"></script>
-  <script src="app.js?v=12"></script>
+  <script src="recurring.js?v=2"></script>
+  <script src="app.js?v=13"></script>
 </body>
 </html>
