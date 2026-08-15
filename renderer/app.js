@@ -48,6 +48,7 @@ function isSoundMuted() {
 }
 
 function playSound(type) {
+  window._soundPlayedThisClick = true;
   if (isSoundMuted()) return;
   try {
     const ctx = getAudioContext();
@@ -60,59 +61,76 @@ function playSound(type) {
     filter.type = 'lowpass';
     filter.Q.value = 0.5;
     filter.connect(master);
-    const osc = ctx.createOscillator();
-    osc.connect(filter);
     let dur = 0.12;
+
+    function tone(freqStart, freqEnd, gain, attack, decay, filterFreq, wave = 'sine') {
+      const osc = ctx.createOscillator();
+      osc.type = wave;
+      osc.connect(filter);
+      filter.frequency.setValueAtTime(filterFreq, t);
+      osc.frequency.setValueAtTime(freqStart, t);
+      if (freqEnd !== freqStart) osc.frequency.exponentialRampToValueAtTime(freqEnd, t + decay);
+      master.gain.linearRampToValueAtTime(gain, t + attack);
+      master.gain.exponentialRampToValueAtTime(0.0001, t + decay);
+      osc.start(t);
+      osc.stop(t + decay);
+    }
+
     switch (type) {
       case 'click': {
-        osc.type = 'sine';
-        filter.frequency.setValueAtTime(2800, t);
-        osc.frequency.setValueAtTime(1800, t);
-        osc.frequency.exponentialRampToValueAtTime(1200, t + 0.04);
-        master.gain.linearRampToValueAtTime(0.1, t + 0.005);
-        master.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
-        dur = 0.08;
+        tone(820, 480, 0.035, 0.006, 0.14, 900, 'sine');
+        dur = 0.14;
         break;
       }
       case 'complete': {
-        osc.type = 'sine';
+        const osc1 = ctx.createOscillator();
+        osc1.type = 'sine';
+        osc1.connect(filter);
         filter.frequency.setValueAtTime(2400, t);
-        osc.frequency.setValueAtTime(523.25, t);
-        osc.frequency.setValueAtTime(659.25, t + 0.12);
+        osc1.frequency.setValueAtTime(523.25, t);
+        osc1.frequency.setValueAtTime(659.25, t + 0.12);
         master.gain.linearRampToValueAtTime(0.16, t + 0.02);
         master.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+        osc1.start(t);
+        osc1.stop(t + 0.6);
         dur = 0.6;
         break;
       }
       case 'delete': {
-        osc.type = 'triangle';
-        filter.frequency.setValueAtTime(900, t);
-        osc.frequency.setValueAtTime(160, t);
-        osc.frequency.exponentialRampToValueAtTime(80, t + 0.08);
-        master.gain.linearRampToValueAtTime(0.16, t + 0.005);
-        master.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
-        dur = 0.18;
+        tone(160, 80, 0.14, 0.005, 0.14, 900, 'triangle');
+        dur = 0.14;
         break;
       }
       case 'confirm': {
-        osc.type = 'sine';
-        filter.frequency.setValueAtTime(2600, t);
-        osc.frequency.setValueAtTime(440, t);
-        osc.frequency.exponentialRampToValueAtTime(550, t + 0.15);
-        master.gain.linearRampToValueAtTime(0.14, t + 0.015);
-        master.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
-        dur = 0.4;
+        tone(440, 550, 0.12, 0.015, 0.35, 2600, 'sine');
+        dur = 0.35;
+        break;
+      }
+      case 'open': {
+        tone(280, 520, 0.07, 0.02, 0.22, 1800, 'sine');
+        dur = 0.22;
+        break;
+      }
+      case 'defer': {
+        tone(420, 300, 0.06, 0.02, 0.22, 1600, 'sine');
+        dur = 0.22;
+        break;
+      }
+      case 'project': {
+        tone(180, 130, 0.1, 0.01, 0.18, 700, 'triangle');
+        dur = 0.18;
+        break;
+      }
+      case 'idea': {
+        tone(620, 920, 0.07, 0.01, 0.24, 2400, 'sine');
+        dur = 0.24;
         break;
       }
       default: {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(800, t);
-        master.gain.linearRampToValueAtTime(0.1, t + 0.01);
-        master.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
+        tone(800, 600, 0.08, 0.01, 0.12, 1600, 'sine');
+        dur = 0.12;
       }
     }
-    osc.start(t);
-    osc.stop(t + dur);
   } catch (e) {}
 }
 
@@ -170,6 +188,7 @@ function buildBackup() {
 }
 
 async function downloadBackup() {
+  playSound('confirm');
   const json = buildBackup();
   const suggestedName = `onward-backup-${dateKey(new Date())}.json`;
   if (window.hiwayAPI && window.hiwayAPI.saveBackup) {
@@ -249,6 +268,7 @@ function applyBackup(backup) {
 }
 
 async function restoreBackup(file) {
+  playSound('confirm');
   applyBackup(await readBackupFile(file));
 }
 
@@ -499,7 +519,7 @@ function initSettings() {
     updateSettingsUI();
     settingsPopoutOpen = true;
     popout.style.display = 'block';
-    playSound('click');
+    playSound('open');
   }
 
   function closePopout() {
@@ -581,6 +601,7 @@ function initCloudBackup() {
   function togglePopout() {
     cloudPopoutOpen = !cloudPopoutOpen;
     popout.style.display = cloudPopoutOpen ? 'block' : 'none';
+    if (cloudPopoutOpen) playSound('open');
   }
 
   function closePopout() {
@@ -853,6 +874,7 @@ function initDashboard() {
 }
 
 function openDashboardDetail(type, date = null) {
+  playSound('open');
   dashboardDetailType = type;
   dashboardDetailDate = date;
   renderDashboardDetail(type, date);
@@ -946,6 +968,7 @@ function bindDragReorder(li) {
       const reordered = ordered.map(el => idMap[el.dataset.id]).filter(Boolean);
       if (reordered.length === tasks.length) {
         appState.data.tasks[srcDate] = reordered;
+        playSound('click');
         scheduleSave();
         renderCalendar();
         renderDashboard();
@@ -1495,6 +1518,7 @@ function initCalendar() {
 }
 
 function navigateCalendar(dir) {
+  playSound('click');
   const d = appState.calDate;
   if (appState.calMode === 'month') d.setMonth(d.getMonth() + dir);
   else if (appState.calMode === 'week') d.setDate(d.getDate() + dir * 7);
@@ -1560,8 +1584,8 @@ function renderWeek(body, query = '') {
 
 function buildDayRing(tasks, size = 36) {
   const maxSlots = 12;
-  const stroke = 2.5;
-  const radius = (size - stroke) / 2 - 2;
+  const stroke = 2;
+  const radius = (size - stroke) / 2 - 7;
   const cx = size / 2;
   const cy = size / 2;
   const circumference = 2 * Math.PI * radius;
@@ -1571,23 +1595,26 @@ function buildDayRing(tasks, size = 36) {
 
   const allDone = tasks.every(t => t.done);
   const full = tasks.length >= maxSlots;
-  const arcAngle = full ? slotAngle : slotAngle * 0.45;
+  const activeColor = allDone ? 'var(--success)' : 'var(--accent)';
+  const track = `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="var(--accent)" stroke-width="1" opacity="0.08" transform="rotate(-90 ${cx} ${cy})" />`;
+
+  if (full) {
+    return `<svg viewBox="0 0 ${size} ${size}" class="day-ring-svg">${track}<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="${activeColor}" stroke-width="${stroke}" transform="rotate(-90 ${cx} ${cy})" /></svg>`;
+  }
+
+  const arcAngle = slotAngle * 0.22;
   const arcLen = (circumference * arcAngle) / 360;
   const gap = circumference - arcLen;
-  const activeColor = full
-    ? (allDone ? 'var(--success)' : 'var(--accent)')
-    : null;
 
   let arcs = '';
   for (let i = 0; i < count; i++) {
     const t = tasks[i];
-    const color = full ? activeColor : (t.done ? 'var(--success)' : 'var(--accent)');
+    const color = t.done ? 'var(--success)' : 'var(--accent)';
     const startAngle = (i * slotAngle - arcAngle / 2 + 360) % 360;
     const offset = -(circumference * ((270 + startAngle) % 360) / 360);
     arcs += `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${arcLen.toFixed(2)} ${gap.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}" transform="rotate(-90 ${cx} ${cy})" />`;
   }
 
-  const track = `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="var(--accent)" stroke-width="${stroke}" opacity="0.12" transform="rotate(-90 ${cx} ${cy})" />`;
   return `<svg viewBox="0 0 ${size} ${size}" class="day-ring-svg">${track}${arcs}</svg>`;
 }
 
@@ -1795,6 +1822,7 @@ function removeTaskAt(idx) {
 
 /* Modals */
 function openModal(title, bodyHTML, confirmText = 'Confirm', onConfirm, onCancel) {
+  playSound('open');
   const overlay = document.getElementById('modal-overlay');
   const card = document.getElementById('modal-card');
   document.getElementById('modal-title').textContent = title;
@@ -1891,7 +1919,7 @@ function openPostponeModal(idx) {
       appState.data.tasks[targetDate].push(movedTask);
       updateProjectStepDate(movedTask, targetDate);
     }
-    playSound('click');
+    playSound('defer');
     scheduleSave();
     renderCalendar();
     renderDashboard();
@@ -2010,6 +2038,7 @@ function addProjectStepToProject(projectId, text, date, stepId, done = false) {
 }
 
 function restoreDeferredItem(idx, targetDate) {
+  playSound('confirm');
   const items = appState.deferredMode === 'postponed' ? appState.data.postponed : appState.data.trash;
   const item = items[idx];
   const key = dateKey(targetDate);
@@ -2027,6 +2056,7 @@ function restoreDeferredItem(idx, targetDate) {
 }
 
 function deleteDeferredItemForever(idx) {
+  playSound('delete');
   appState.data.trash.splice(idx, 1);
   scheduleSave();
   renderDeferred();
@@ -2053,6 +2083,7 @@ function addProject() {
   const input = document.getElementById('new-project-input');
   const title = input.value.trim();
   if (!title) return;
+  playSound('project');
   appState.data.projects.push({ id: uuid(), title, steps: [], created: new Date().toISOString(), completed: false });
   input.value = '';
   scheduleSave();
@@ -2069,6 +2100,7 @@ function deleteProject(pid) {
     return;
   }
   setTimeout(() => window.focus(), 0);
+  playSound('delete');
   Object.keys(appState.data.tasks).forEach(date => {
     appState.data.tasks[date] = appState.data.tasks[date].filter(t => t.projectId !== pid);
     if (appState.data.tasks[date].length === 0) delete appState.data.tasks[date];
@@ -2086,6 +2118,7 @@ function deleteProject(pid) {
 function toggleProjectCompleted(pid) {
   const project = appState.data.projects.find(p => p.id === pid);
   if (!project) return;
+  playSound('project');
   project.completed = !project.completed;
   if (project.completed) {
     project.steps.forEach(step => {
@@ -2110,6 +2143,7 @@ function addStep(pid, textInput, dateInput) {
   const text = typeof textInput === 'string' ? textInput : textInput.value.trim();
   const dateVal = typeof dateInput === 'string' ? dateInput : (dateInput ? dateInput.value : '');
   if (!text) return;
+  playSound('project');
   const project = appState.data.projects.find(p => p.id === pid);
   if (!project) return;
   const key = dateVal || dateKey(new Date());
@@ -2131,6 +2165,7 @@ function toggleStep(pid, sid) {
   if (!project) return;
   const step = project.steps.find(s => s.id === sid);
   if (!step) return;
+  playSound(step.done ? 'click' : 'complete');
   const found = findTaskByIdWithDate(sid);
   if (found) {
     const task = found.task;
@@ -2152,6 +2187,7 @@ function toggleStep(pid, sid) {
 function deleteStep(pid, sid) {
   const project = appState.data.projects.find(p => p.id === pid);
   if (!project) return;
+  playSound('delete');
   const found = findTaskByIdWithDate(sid);
   if (found) {
     const tasks = appState.data.tasks[found.date];
@@ -2168,6 +2204,7 @@ function deleteStep(pid, sid) {
 }
 
 function addProjectSpreadsheet(projectId, title) {
+  playSound('confirm');
   const t = (title || '').trim();
   const sheet = createSpreadsheetData();
   if (t) sheet.title = t;
@@ -2362,6 +2399,7 @@ function initPeek() {
 function openProjectPeek(pid) {
   const project = appState.data.projects.find(p => p.id === pid);
   if (!project) return;
+  playSound('open');
   currentPeekProjectId = project.id;
   closeSpreadsheet();
   const overlay = document.getElementById('peek-overlay');
@@ -2420,6 +2458,7 @@ function getSortedDayKeys(days) {
 }
 
 function createNote() {
+  playSound('idea');
   const now = new Date().toISOString();
   const note = { id: uuid(), title: 'New idea', body: '', created: now, updated: now };
   appState.data.notes.push(note);
@@ -2434,6 +2473,7 @@ function createNote() {
 }
 
 function selectNote(id) {
+  playSound('idea');
   appState.selectedBrainstormNoteId = id;
   const note = appState.data.notes.find(n => n.id === id);
   if (note) {
@@ -2456,6 +2496,7 @@ function saveCurrentNote() {
 }
 
 function deleteNote(id) {
+  playSound('delete');
   appState.data.notes = appState.data.notes.filter(n => n.id !== id);
   const days = getBrainstormDays();
   const keys = getSortedDayKeys(days);
@@ -2711,6 +2752,7 @@ function initNotesOverlay() {
 function openTaskNotes(date, idx, fromComplete = false) {
   const tasks = appState.data.tasks[date];
   if (!tasks || !tasks[idx]) return;
+  playSound('open');
   notesTarget = { date, idx, fromComplete };
   const task = tasks[idx];
   const overlay = document.getElementById('notes-overlay');
@@ -2857,6 +2899,7 @@ function generateReportData(start, end, includeTasks, includeProjects) {
 }
 
 async function downloadReportExcel() {
+  playSound('confirm');
   if (typeof window.createXlsx !== 'function') {
     alert('Excel export is not available.');
     return;
@@ -3181,6 +3224,7 @@ let selectedCell = null;
 let newlyCreatedSheetId = null;
 
 async function exportSpreadsheet() {
+  playSound('confirm');
   if (!activeSheet) return;
   if (typeof window.createXlsx !== 'function') {
     alert('Excel export is not available.');
@@ -3227,6 +3271,7 @@ function initSpreadsheets() {
   document.getElementById('new-sheet-btn').addEventListener('click', () => {
     const input = document.getElementById('new-sheet-title');
     const title = input.value.trim();
+    playSound('confirm');
     const sheet = createSpreadsheetData();
     if (title) sheet.title = title;
     appState.data.spreadsheets.unshift(sheet);
@@ -3327,6 +3372,7 @@ function renderSpreadsheets() {
 }
 
 function openSpreadsheet(id, inPlace = false) {
+  playSound('open');
   if (!inPlace) switchView('spreadsheets');
   else closePeek();
   sortSpreadsheets();
@@ -3356,6 +3402,7 @@ function deleteSpreadsheet(sid) {
     return;
   }
   setTimeout(() => window.focus(), 0);
+  playSound('delete');
   if (linked) {
     Object.keys(appState.data.tasks).forEach(date => {
       appState.data.tasks[date] = appState.data.tasks[date].filter(t => t.id !== linked.id);
@@ -3388,6 +3435,7 @@ function findTaskBySpreadsheetId(sid) {
 }
 
 function adjustSheetScale(type, delta) {
+  playSound('click');
   if (!activeSheet) return;
   if (type === 'col') {
     const old = activeSheet.colScale || 1;
@@ -3910,6 +3958,15 @@ function positionTourTooltip(target, position) {
   tooltip.setAttribute('data-pos', position);
 }
 
+function initAmbientSounds() {
+  const SOUNDABLE = 'button, .nav-item, .kpi-tile, .cal-day, .project-card, .spreadsheet-tile, .brainstorm-card, .deferred-item, .project-step, .project-sheet-item, .day-card, .bs-day-card, .action-btn, .share-day-btn, .modal-option, .day-task-undo, .toggle-theme, .toggle-sound, .cloud-btn';
+  document.addEventListener('pointerdown', () => { window._soundPlayedThisClick = false; }, true);
+  document.addEventListener('click', e => {
+    if (window._soundPlayedThisClick || isSoundMuted()) return;
+    if (e.target.closest(SOUNDABLE)) playSound('click');
+  }, false);
+}
+
 function initMain() {
   initNavigation();
   initSettings();
@@ -3924,6 +3981,7 @@ function initMain() {
   initReports();
   initSpreadsheets();
   initPeek();
+  initAmbientSounds();
   switchView('dashboard');
   initLiquidEffects();
   initTour();
