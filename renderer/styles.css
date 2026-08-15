@@ -318,6 +318,8 @@ html[data-theme="light"] .segmented-control button:hover {
   flex-direction: column;
   gap: 10px;
   flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .nav-item {
@@ -1554,6 +1556,7 @@ html[data-theme="light"] .cal-day {
 .task-item {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 14px 16px;
   border-radius: 20px;
@@ -1562,8 +1565,6 @@ html[data-theme="light"] .cal-day {
   cursor: pointer;
   transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   position: relative;
-  overflow-x: auto;
-  overflow-y: hidden;
   box-shadow: 0 1px 4px rgba(31, 38, 135, 0.04);
   min-height: 56px;
 }
@@ -1599,13 +1600,23 @@ html[data-theme="light"] .cal-day {
   opacity: 0.55;
 }
 
+.task-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+
 .task-text {
-  flex: 1 0 auto;
-  min-width: min-content;
   font-size: 0.95rem;
   position: relative;
   z-index: 1;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .task-item.done .task-text {
@@ -1776,6 +1787,7 @@ html[data-theme="light"] .modal-overlay {
 .modal-card {
   width: 460px;
   max-width: 100%;
+  max-height: calc(100vh - 48px);
   padding: 28px;
   display: flex;
   flex-direction: column;
@@ -1783,6 +1795,7 @@ html[data-theme="light"] .modal-overlay {
   transform: scale(0.92);
   transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
   box-shadow: var(--shadow-lg);
+  overflow-y: auto;
 }
 
 .modal-overlay.active .modal-card {
@@ -2846,25 +2859,54 @@ html[data-theme="dark"] ::-webkit-scrollbar-track {
     width: 100%;
     height: auto;
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
     padding: 12px 16px;
     position: relative;
-  }
-  .nav {
-    flex-direction: row;
-    flex: 1;
-    justify-content: center;
-  }
-  .sidebar-footer {
-    border-top: none;
-    padding-top: 0;
-    gap: 10px;
+    gap: 8px;
   }
   .sidebar-brand {
     margin-bottom: 0;
+    padding-left: 0;
+  }
+  .sidebar-brand span {
+    display: none;
+  }
+  .nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    flex: 1;
+    justify-content: center;
+    gap: 6px;
+    min-width: 0;
+  }
+  .nav-item {
+    padding: 10px 12px;
+  }
+  .nav-icon {
+    font-size: 1.1rem;
+    width: auto;
   }
   .nav-label {
     display: none;
+  }
+  .sidebar-footer {
+    width: 100%;
+    justify-content: flex-end;
+    padding-top: 10px;
+    margin-top: 4px;
+    border-top: 1px solid var(--border);
+    gap: 10px;
+  }
+  .settings-popout {
+    left: auto;
+    right: 0;
+    bottom: calc(100% + 10px);
+  }
+  .settings-popout::before {
+    left: auto;
+    right: 18px;
+    bottom: -7px;
   }
   #view-calendar.active, #view-notes.active, .brainstorm-shell {
     flex-direction: column;
@@ -4287,23 +4329,78 @@ html[data-theme="light"] .peek-overlay {
   cursor: pointer;
 }
 
+.recurring-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .recurring-subtask-input {
   display: flex;
   gap: 8px;
+  align-items: stretch;
+  margin-top: 6px;
 }
 
 .recurring-subtask-input input {
   flex: 1;
+  min-width: 0;
 }
 
 .recurring-subtask-input button {
-  padding: 0 12px;
+  padding: 10px 16px;
   border-radius: var(--radius-md);
   border: none;
-  background: var(--accent);
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
   color: white;
   cursor: pointer;
   font-weight: 600;
+  font-size: 0.85rem;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.recurring-subtask-input button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.4);
+}
+
+.recurring-weekdays {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.recurring-weekday {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--glass);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.recurring-weekday.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+}
+
+.recurring-dates-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.recurring-dates-row > div {
+  flex: 1;
+  min-width: 0;
 }
 
 .modal-card.wide {
@@ -4312,7 +4409,11 @@ html[data-theme="light"] .peek-overlay {
 }
 
 .task-subtasks {
-  margin: 6px 0 0 24px;
+  width: 100%;
+  flex-basis: 100%;
+  box-sizing: border-box;
+  padding-left: 30px;
+  margin-top: 6px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -4321,28 +4422,67 @@ html[data-theme="light"] .peek-overlay {
 .subtask-item {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  padding: 4px 8px;
+  padding: 6px 10px;
   border-radius: var(--radius-md);
   background: var(--glass);
   border: 1px solid var(--border);
   font-size: 0.85rem;
+  min-height: 40px;
 }
 
-.subtask-item input[type="checkbox"] {
-  accent-color: var(--accent);
+.subtask-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.subtask-item.done {
+.subtask-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.subtask-actions .action-btn {
+  width: 26px;
+  height: 26px;
+  font-size: 0.85rem;
+}
+
+.subtask-actions .subtask-complete {
+  color: var(--success);
+  border-color: rgba(34, 197, 94, 0.28);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.subtask-actions .subtask-delete {
+  color: var(--danger);
+  border-color: rgba(239, 68, 68, 0.28);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.subtask-item.done .subtask-text {
   opacity: 0.6;
   text-decoration: line-through;
 }
 
-.task-recurring-meta {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+html[data-theme="dark"] .subtask-actions .subtask-complete { background: rgba(34, 197, 94, 0.18); }
+html[data-theme="dark"] .subtask-actions .subtask-delete { background: rgba(239, 68, 68, 0.18); }
+
+.task-meta {
   font-size: 0.75rem;
+  color: var(--muted);
+  display: block;
+}
+
+.task-recurring-meta {
   color: var(--accent);
-  margin-left: 6px;
+}
+
+.task-planted-meta {
+  color: var(--muted);
 }
