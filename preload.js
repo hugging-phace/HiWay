@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('hiwayAPI', {
   getData: () => ipcRenderer.invoke('api:getData'),
   saveData: (data) => ipcRenderer.invoke('api:saveData', data),
   saveBackup: (data, suggestedName) => ipcRenderer.invoke('api:saveBackup', data, suggestedName),
+  showNotification: (title, body) => ipcRenderer.invoke('api:showNotification', title, body),
   openBackup: () => ipcRenderer.invoke('api:openBackup'),
   windowAction: (action) => ipcRenderer.invoke('api:windowAction', action),
   isMaximized: () => ipcRenderer.invoke('api:isMaximized'),

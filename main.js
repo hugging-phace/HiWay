@@ -11,6 +11,8 @@ if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 const usersFile = path.join(dataDir, 'users.json');
 const dataFile = path.join(dataDir, 'appdata.json');
 
+if (process.platform === 'win32') app.setAppUserModelId('com.onward.hiway');
+
 function readJSON(file, fallback = {}) {
   try {
     if (!fs.existsSync(file)) return fallback;
@@ -26,6 +28,18 @@ function writeJSON(file, data) {
 
 const iconPath = path.join(__dirname, 'build/icon.png');
 let mainWindow = null;
+
+function getAllData() {
+  let raw = readJSON(dataFile, {});
+  if (raw && (Array.isArray(raw.tasks) || Array.isArray(raw.projects) || raw.theme)) {
+    raw = { _legacy: raw };
+  }
+  return raw;
+}
+
+function saveAllData(data) {
+  writeJSON(dataFile, data);
+}
 
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
@@ -94,8 +108,17 @@ app.on('activate', () => {
 
 ipcMain.handle('api:getUsers', () => readJSON(usersFile, {}));
 ipcMain.handle('api:saveUsers', (event, users) => { writeJSON(usersFile, users); return true; });
-ipcMain.handle('api:getData', () => readJSON(dataFile, {}));
-ipcMain.handle('api:saveData', (event, data) => { writeJSON(dataFile, data); return true; });
+ipcMain.handle('api:getData', () => getAllData());
+ipcMain.handle('api:saveData', (event, data) => { saveAllData(data); return true; });
+
+ipcMain.handle('api:showNotification', (event, title, body) => {
+  try {
+    if (Notification.isSupported && Notification.isSupported()) {
+      new Notification({ title, body, icon: iconPath }).show();
+    }
+  } catch (e) {}
+  return true;
+});
 
 ipcMain.handle('api:saveBackup', async (event, data, suggestedName) => {
   const win = BrowserWindow.fromWebContents(event.sender);

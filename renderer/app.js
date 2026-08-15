@@ -35,6 +35,8 @@ let notesTarget = null;
 let pendingRestore = null;
 let cloudPopoutOpen = false;
 let audioCtx = null;
+let allUserData = {};
+let mainInitialized = false;
 
 function getAudioContext() {
   if (!audioCtx) {
@@ -137,7 +139,7 @@ function playSound(type) {
 function scheduleSave() {
   clearTimeout(saveTimeout);
   saveTimeout = setTimeout(() => {
-    window.hiwayAPI.saveData(appState.data);
+    window.hiwayAPI.saveData(appState.user ? allUserData : appState.data);
   }, 400);
 }
 
@@ -146,6 +148,10 @@ function uuid() {
     const r = Math.random() * 16 | 0;
     return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
   });
+}
+
+function makeDefaultData() {
+  return { tasks: {}, projects: [], notes: [], postponed: [], trash: [], spreadsheets: [], recurring: [], theme: 'light', soundMuted: false };
 }
 
 function dateKey(date) {
@@ -183,7 +189,7 @@ function buildBackup() {
     exportedAt: new Date().toISOString(),
     currentUser: appState.user,
     users: appState.users,
-    data: appState.data
+    data: appState.user ? allUserData : appState.data
   }, null, 2);
 }
 
@@ -218,29 +224,47 @@ function mergeUniqueArrays(a = [], b = [], key = 'id') {
 function mergeBackup(backup) {
   if (!backup || typeof backup !== 'object') throw new Error('Invalid backup file.');
   const incoming = backup.data || {};
-  const current = appState.data;
 
   // Merge users
   if (backup.users && typeof backup.users === 'object') {
     appState.users = { ...appState.users, ...backup.users };
   }
 
-  // Merge tasks by date, deduplicating by id
-  if (incoming.tasks && typeof incoming.tasks === 'object') {
-    Object.keys(incoming.tasks).forEach(key => {
-      const incomingList = Array.isArray(incoming.tasks[key]) ? incoming.tasks[key] : [];
-      current.tasks[key] = mergeUniqueArrays(current.tasks[key] || [], incomingList, 'id');
+  if (incoming.tasks || incoming.projects || incoming.notes || incoming.postponed || incoming.trash || incoming.spreadsheets) {
+    // Legacy / single-user backup
+    const current = appState.user ? (allUserData[appState.user] ||= makeDefaultData()) : appState.data;
+    if (incoming.tasks && typeof incoming.tasks === 'object') {
+      Object.keys(incoming.tasks).forEach(key => {
+        const incomingList = Array.isArray(incoming.tasks[key]) ? incoming.tasks[key] : [];
+        current.tasks[key] = mergeUniqueArrays(current.tasks[key] || [], incomingList, 'id');
+      });
+    }
+    current.projects = mergeUniqueArrays(current.projects, incoming.projects, 'id');
+    current.notes = mergeUniqueArrays(current.notes, incoming.notes, 'id');
+    current.spreadsheets = mergeUniqueArrays(current.spreadsheets, incoming.spreadsheets, 'id');
+    current.postponed = mergeUniqueArrays(current.postponed, incoming.postponed, 'id');
+    current.trash = mergeUniqueArrays(current.trash, incoming.trash, 'id');
+    if (incoming.theme) current.theme = incoming.theme;
+  } else if (typeof incoming === 'object') {
+    // Multi-user backup keyed by username
+    Object.keys(incoming).forEach(user => {
+      if (user.startsWith('_')) return;
+      const src = incoming[user] || {};
+      const target = allUserData[user] ||= makeDefaultData();
+      if (src.tasks && typeof src.tasks === 'object') {
+        Object.keys(src.tasks).forEach(key => {
+          const incomingList = Array.isArray(src.tasks[key]) ? src.tasks[key] : [];
+          target.tasks[key] = mergeUniqueArrays(target.tasks[key] || [], incomingList, 'id');
+        });
+      }
+      target.projects = mergeUniqueArrays(target.projects, src.projects, 'id');
+      target.notes = mergeUniqueArrays(target.notes, src.notes, 'id');
+      target.spreadsheets = mergeUniqueArrays(target.spreadsheets, src.spreadsheets, 'id');
+      target.postponed = mergeUniqueArrays(target.postponed, src.postponed, 'id');
+      target.trash = mergeUniqueArrays(target.trash, src.trash, 'id');
+      if (src.theme) target.theme = src.theme;
     });
   }
-
-  // Merge array collections
-  current.projects = mergeUniqueArrays(current.projects, incoming.projects, 'id');
-  current.notes = mergeUniqueArrays(current.notes, incoming.notes, 'id');
-  current.spreadsheets = mergeUniqueArrays(current.spreadsheets, incoming.spreadsheets, 'id');
-  current.postponed = mergeUniqueArrays(current.postponed, incoming.postponed, 'id');
-  current.trash = mergeUniqueArrays(current.trash, incoming.trash, 'id');
-
-  if (incoming.theme) current.theme = incoming.theme;
   scheduleSave();
 }
 
@@ -465,15 +489,54 @@ function initAuth() {
   }
 }
 
+function loadUserData() {
+  if (!appState.user) return;
+  if (!allUserData[appState.user]) {
+    if (allUserData._legacy && Object.keys(appState.users).length === 1) {
+      allUserData[appState.user] = allUserData._legacy;
+      delete allUserData._legacy;
+    } else {
+      allUserData[appState.user] = makeDefaultData();
+    }
+  }
+  appState.data = allUserData[appState.user];
+  appState.data.notes = appState.data.notes || [];
+  appState.data.notes.forEach(n => { if (!n.created) n.created = n.updated || new Date().toISOString(); });
+  appState.data.recurring = appState.data.recurring || [];
+  syncRecurringInstances();
+  autoRollover();
+  (appState.data.projects || []).forEach(p => { if (typeof p.completed !== 'boolean') p.completed = false; });
+  initTheme();
+}
+
 function enterApp() {
   document.getElementById('auth-screen').classList.remove('active');
   document.getElementById('main-screen').classList.add('active');
   document.getElementById('current-user').textContent = '@' + appState.user;
-  initMain();
+  loadUserData();
+  if (!mainInitialized) initMain();
+  else refreshAllViews();
+}
+
+function refreshAllViews() {
+  initTheme();
+  renderCalendar();
+  renderProjects();
+  renderNotes();
+  renderDeferred();
+  renderDashboard();
+  renderSpreadsheets();
+  renderRecurring();
+  renderReports();
+  switchView(appState.currentView || 'dashboard');
 }
 
 function logout() {
+  const popout = document.getElementById('settings-popout');
+  if (popout) popout.style.display = 'none';
+  settingsPopoutOpen = false;
   appState.user = null;
+  appState.data = makeDefaultData();
   document.getElementById('main-screen').classList.remove('active');
   document.getElementById('auth-screen').classList.add('active');
   document.getElementById('auth-username').value = '';
@@ -513,7 +576,8 @@ function initSettings() {
   const closeBtn = document.getElementById('settings-close');
   const themeToggle = document.getElementById('settings-theme-toggle');
   const soundToggle = document.getElementById('settings-sound-toggle');
-  if (!toggle || !popout) return;
+  if (!toggle || !popout || toggle.dataset.inited) return;
+  toggle.dataset.inited = '1';
 
   function showPopout() {
     updateSettingsUI();
@@ -673,7 +737,7 @@ function switchView(view) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   const target = document.getElementById('view-' + view);
   if (target) target.classList.add('active');
-  const viewTitles = { dashboard: 'Overview', calendar: 'Calendar', projects: 'Projects', notes: 'Brainstorm', reports: 'Reports', spreadsheets: 'Spreadsheets', deferred: 'Deferred' };
+  const viewTitles = { dashboard: 'Overview', calendar: 'Calendar', projects: 'Projects', notes: 'Brainstorm', reports: 'Reports', spreadsheets: 'Spreadsheets', recurring: 'Recurring', deferred: 'Deferred' };
   document.getElementById('page-title').textContent = viewTitles[view] || (view.charAt(0).toUpperCase() + view.slice(1));
   if (view === 'dashboard') renderDashboard();
   if (view === 'calendar') renderCalendar();
@@ -682,6 +746,7 @@ function switchView(view) {
   if (view === 'deferred') renderDeferred();
   if (view === 'reports') renderReports();
   if (view === 'spreadsheets') renderSpreadsheets();
+  if (view === 'recurring') renderRecurring();
   if (container) {
     requestAnimationFrame(() => {
       container.scrollTop = 0;
@@ -749,10 +814,20 @@ function getRecentWins(limit = 5) {
 
 function getUpcomingCount() {
   const today = dateKey(new Date());
-  let count = 0;
+  const upcoming = [];
   Object.entries(appState.data.tasks).forEach(([date, tasks]) => {
     if (date <= today) return;
-    count += tasks.filter(t => !t.done).length;
+    tasks.forEach(t => { if (!t.done) upcoming.push({ date, task: t }); });
+  });
+  upcoming.sort((a, b) => a.date.localeCompare(b.date));
+  const seenRecurring = new Set();
+  let count = 0;
+  upcoming.forEach(({ task }) => {
+    if (task.recurringId) {
+      if (seenRecurring.has(task.recurringId)) return;
+      seenRecurring.add(task.recurringId);
+    }
+    count++;
   });
   return count;
 }
@@ -768,6 +843,7 @@ function autoRollover() {
     }
   });
   moves.forEach(({ from, idx, task }) => {
+    if (task.recurringId && hasRecurringTaskOnDate(task.recurringId, today)) return;
     appState.data.tasks[from].splice(idx, 1);
     if (appState.data.tasks[from].length === 0) delete appState.data.tasks[from];
     if (!appState.data.tasks[today]) appState.data.tasks[today] = [];
@@ -921,12 +997,29 @@ function bindTaskActionButtons(li, task, date, idx) {
   if (!task.done) {
     const doneBtn = li.querySelector('.done-btn');
     const deferBtn = li.querySelector('.defer-btn');
-    if (doneBtn) doneBtn.addEventListener('click', () => completeTaskForDate(date, idx));
+    if (doneBtn) doneBtn.addEventListener('click', () => {
+      if (li.dataset.fromUpcoming === 'true' && task.recurringId) {
+        openModal('Complete recurring task?', '<p style="color:var(--muted)">You are marking a recurring task as completed early. This should only be done if it was actually completed. Continue?</p>', 'Complete', () => { completeTaskForDate(date, idx); });
+      } else {
+        completeTaskForDate(date, idx);
+      }
+    });
     if (deferBtn) deferBtn.addEventListener('click', () => openPostponeModalForDate(date, idx));
   } else {
     const undoBtn = li.querySelector('.undo-btn');
     if (undoBtn) undoBtn.addEventListener('click', () => undoTaskForDate(date, idx));
   }
+  li.querySelectorAll('.task-subtasks input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const sid = cb.dataset.sid;
+      const sub = (task.subtasks || []).find(s => s.id === sid);
+      if (sub) {
+        sub.done = cb.checked;
+        cb.parentElement.classList.toggle('done', cb.checked);
+        scheduleSave();
+      }
+    });
+  });
 }
 
 function bindDragReorder(li) {
@@ -1007,20 +1100,29 @@ function taskBadge(task) {
   return '';
 }
 
-function buildDetailTaskItem(task, date, idx, allowDrag = false) {
+function buildDetailTaskItem(task, date, idx, allowDrag = false, fromUpcoming = false) {
   const li = document.createElement('li');
-  li.className = 'task-item' + (task.done ? ' done' : '') + (task.projectId ? ' project-task' : '') + (task.spreadsheetId ? ' spreadsheet-task' : '');
+  const recurringClass = task.recurringId ? ' recurring-task' : '';
+  li.className = 'task-item' + (task.done ? ' done' : '') + (task.projectId ? ' project-task' : '') + (task.spreadsheetId ? ' spreadsheet-task' : '') + recurringClass;
   li.dataset.idx = idx;
   li.dataset.date = date;
   li.dataset.id = task.id;
-  const planted = task.plantedDate || date;
-  const plantedMeta = `<span class="task-planted-meta">Planted ${formatShortDate(planted)}${planted !== date ? ` · now ${formatShortDate(date)}` : ''}</span>`;
+  li.dataset.fromUpcoming = fromUpcoming;
+  let meta = '';
+  if (task.recurringId) {
+    meta = `<span class="task-recurring-meta">↻ Recurring ${escapeHtml(task.frequency || '')}</span>`;
+  } else {
+    const planted = task.plantedDate || date;
+    meta = `<span class="task-planted-meta">Planted ${formatShortDate(planted)}${planted !== date ? ` · now ${formatShortDate(date)}` : ''}</span>`;
+  }
   const dragHandle = allowDrag ? `<span class="drag-handle" title="Drag to reorder">⋮⋮</span>` : '';
   li.innerHTML = `
     ${dragHandle}
-    <span class="task-text">${taskBadge(task)}${escapeHtml(task.text)}${plantedMeta}</span>
+    <span class="task-text">${taskBadge(task)}${escapeHtml(task.text)}${meta}</span>
     ${buildTaskActions(task, date, idx)}
   `;
+  const subtasksHtml = buildRecurringSubtasksHTML(task.subtasks);
+  if (subtasksHtml) li.insertAdjacentHTML('beforeend', subtasksHtml);
   bindTaskActionButtons(li, task, date, idx);
   if (allowDrag) bindDragReorder(li);
   const badge = li.querySelector('.task-badge');
@@ -1183,14 +1285,23 @@ function renderDashboardDetail(type, date = null) {
       tasks.forEach((task, idx) => { if (!task.done) upcoming.push({ date, task, idx }); });
     });
     upcoming.sort((a, b) => a.date.localeCompare(b.date));
+    const seenRecurring = new Set();
+    const filtered = [];
+    upcoming.forEach(item => {
+      if (item.task.recurringId) {
+        if (seenRecurring.has(item.task.recurringId)) return;
+        seenRecurring.add(item.task.recurringId);
+      }
+      filtered.push(item);
+    });
     titleEl.textContent = 'Upcoming Task';
-    valueEl.textContent = upcoming.length;
-    subtitleEl.textContent = upcoming.length ? 'Get ahead of your tasks' : 'all caught up';
-    if (!upcoming.length) {
+    valueEl.textContent = filtered.length;
+    subtitleEl.textContent = filtered.length ? 'Get ahead of your tasks' : 'all caught up';
+    if (!filtered.length) {
       bodyEl.innerHTML = '<div class="detail-empty">No upcoming tasks. You are all caught up.</div>';
     } else {
       let lastDate = null;
-      upcoming.forEach(({ date, task, idx }) => {
+      filtered.forEach(({ date, task, idx }) => {
         if (date !== lastDate) {
           const group = document.createElement('div');
           group.className = 'detail-date-group';
@@ -1199,7 +1310,7 @@ function renderDashboardDetail(type, date = null) {
           bodyEl.appendChild(group);
           lastDate = date;
         }
-        bodyEl.appendChild(buildDetailTaskItem(task, date, idx, false));
+        bodyEl.appendChild(buildDetailTaskItem(task, date, idx, false, true));
       });
     }
     const min = getNextDay(today);
@@ -1913,6 +2024,10 @@ function openPostponeModal(idx) {
   const cleanup = () => { overlay.classList.remove('active'); };
 
   const closeAndMove = (targetDate, mode, rescheduled = false) => {
+    if (mode !== 'postponed' && task.recurringId && checkRecurringMoveConflict(task, targetDate)) {
+      alert('You already have this recurring task on the chosen date and cannot duplicate it.');
+      return;
+    }
     cleanup();
     const removed = extractTask(idx);
     const planted = removed.plantedDate || appState.selectedDate;
@@ -1932,9 +2047,16 @@ function openPostponeModal(idx) {
     } else {
       if (!appState.data.tasks[targetDate]) appState.data.tasks[targetDate] = [];
       const movedTask = createTask(removed.text, targetDate, removed.notes || '', planted, removed.id, removed.projectId || null, removed.done, removed.completedDate, removed.spreadsheetId || null);
+      if (removed.recurringId) {
+        movedTask.recurringId = removed.recurringId;
+        movedTask.recurringInstanceDate = removed.recurringInstanceDate || appState.selectedDate;
+        movedTask.frequency = removed.frequency;
+        movedTask.subtasks = removed.subtasks ? removed.subtasks.map(s => ({...s})) : [];
+      }
       movedTask.rescheduled = rescheduled;
       appState.data.tasks[targetDate].push(movedTask);
       updateProjectStepDate(movedTask, targetDate);
+      if (removed.recurringId) syncRecurringInstances();
     }
     playSound('defer');
     scheduleSave();
@@ -2453,6 +2575,12 @@ function initNotes() {
   document.getElementById('prev-idea').addEventListener('click', prevIdea);
   document.getElementById('next-idea').addEventListener('click', nextIdea);
   window.addEventListener('resize', () => { if (appState.currentView === 'notes') renderBrainstormStage(); });
+  document.addEventListener('keydown', e => {
+    if (appState.currentView !== 'notes') return;
+    if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+    if (e.key === 'ArrowLeft') { e.preventDefault(); prevIdea(); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); nextIdea(); }
+  });
 }
 
 function noteDayKey(note) {
@@ -2477,7 +2605,7 @@ function getSortedDayKeys(days) {
 function createNote() {
   playSound('idea');
   const now = new Date().toISOString();
-  const note = { id: uuid(), title: 'New idea', body: '', created: now, updated: now };
+  const note = { id: uuid(), title: '', body: '', created: now, updated: now };
   appState.data.notes.push(note);
   appState.selectedBrainstormDay = noteDayKey(note);
   appState.selectedBrainstormNoteId = note.id;
@@ -2486,6 +2614,8 @@ function createNote() {
   setTimeout(() => {
     const el = document.querySelector(`.brainstorm-card[data-id="${note.id}"]`);
     if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    const titleInput = document.getElementById('brainstorm-title');
+    if (titleInput) { titleInput.focus(); titleInput.select(); }
   }, 60);
 }
 
@@ -3985,6 +4115,8 @@ function initAmbientSounds() {
 }
 
 function initMain() {
+  if (mainInitialized) return;
+  mainInitialized = true;
   initNavigation();
   initSettings();
   initTopbarScroll();
@@ -3997,6 +4129,7 @@ function initMain() {
   initNotesOverlay();
   initReports();
   initSpreadsheets();
+  initRecurring();
   initPeek();
   initAmbientSounds();
   switchView('dashboard');
@@ -4007,13 +4140,8 @@ function initMain() {
 
 async function boot() {
   appState.users = await window.hiwayAPI.getUsers();
-  const saved = await window.hiwayAPI.getData();
-  appState.data = Object.assign({ tasks: {}, projects: [], notes: [], postponed: [], trash: [], spreadsheets: [], theme: 'light', soundMuted: false }, saved);
-  appState.data.notes.forEach(n => {
-    if (!n.created) n.created = n.updated || new Date().toISOString();
-  });
-  autoRollover();
-  appState.data.projects.forEach(p => { if (typeof p.completed !== 'boolean') p.completed = false; });
+  allUserData = await window.hiwayAPI.getData() || {};
+  appState.data = makeDefaultData();
   initTheme();
   initPlatform();
   initAuth();
