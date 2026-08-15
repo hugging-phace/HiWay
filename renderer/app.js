@@ -935,18 +935,33 @@ function bindDragReorder(li) {
   handle.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return;
     e.preventDefault();
+    const rect = li.getBoundingClientRect();
+    const offsetX = e.clientX - rect.left;
+    const offsetY = e.clientY - rect.top;
     li.classList.add('dragging');
     li.style.pointerEvents = 'none';
     document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'grabbing';
+    const ghost = li.cloneNode(true);
+    ghost.classList.remove('dragging');
+    ghost.classList.add('task-drag-ghost');
+    ghost.style.width = `${rect.width}px`;
+    ghost.style.height = `${rect.height}px`;
+    ghost.style.left = `${rect.left}px`;
+    ghost.style.top = `${rect.top}px`;
+    ghost.style.pointerEvents = 'none';
+    document.body.appendChild(ghost);
     let current = li;
     const srcDate = li.dataset.date;
 
     const onMove = (ev) => {
       ev.preventDefault();
+      ghost.style.left = `${ev.clientX - offsetX}px`;
+      ghost.style.top = `${ev.clientY - offsetY}px`;
       const target = document.elementFromPoint(ev.clientX, ev.clientY)?.closest(`.task-item[data-date="${srcDate}"]`);
       if (!target || target === current) return;
-      const rect = target.getBoundingClientRect();
-      const midpoint = rect.top + rect.height / 2;
+      const trect = target.getBoundingClientRect();
+      const midpoint = trect.top + trect.height / 2;
       if (ev.clientY < midpoint) {
         if (current.nextElementSibling !== target) target.before(current);
       } else {
@@ -955,9 +970,11 @@ function bindDragReorder(li) {
     };
 
     const onUp = (ev) => {
+      ghost.remove();
       li.classList.remove('dragging');
       li.style.pointerEvents = '';
       document.body.style.userSelect = '';
+      document.body.style.cursor = '';
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
       const container = li.parentElement;
