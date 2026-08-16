@@ -71,16 +71,27 @@ function getAudioContext() {
   return audioCtx;
 }
 
+async function resumeAudio() {
+  const ctx = getAudioContext();
+  if (ctx.state !== 'running') {
+    try { await ctx.resume(); } catch (e) {}
+  }
+  return ctx;
+}
+
+function unlockAudioContext() {
+  resumeAudio().catch(() => {});
+}
+
 function isSoundMuted() {
   return !!(mobileState.data && mobileState.data.soundMuted);
 }
 
-function playSound(type) {
+async function playSound(type) {
   window._soundPlayedThisClick = true;
   if (isSoundMuted()) return;
   try {
-    const ctx = getAudioContext();
-    if (ctx.state === 'suspended') ctx.resume();
+    const ctx = await resumeAudio();
     const t = ctx.currentTime;
     const master = ctx.createGain();
     master.connect(ctx.destination);
@@ -131,7 +142,10 @@ function playSound(type) {
 
 function initAmbientSounds() {
   const SOUNDABLE = 'button, .nav-item, .mobile-tile, .day-row, .catch-card, .more-list li, .note-card, .deferred-card, .modal-option, .action-btn, .recurring-card, .recurring-weekday, .subtask-item button';
-  document.addEventListener('pointerdown', () => { window._soundPlayedThisClick = false; }, true);
+  document.addEventListener('pointerdown', () => {
+    window._soundPlayedThisClick = false;
+    unlockAudioContext();
+  }, true);
   document.addEventListener('click', e => {
     if (window._soundPlayedThisClick || isSoundMuted()) return;
     if (e.target.closest(SOUNDABLE)) playSound('click');
@@ -163,14 +177,17 @@ function initSettingsPopout() {
   const popout = document.getElementById('settings-popout');
   const themeRow = document.getElementById('theme-toggle-row');
   const soundRow = document.getElementById('sound-toggle-row');
+  const hapticRow = document.getElementById('haptic-toggle-row');
   const themePill = document.getElementById('theme-pill');
   const soundPill = document.getElementById('sound-pill');
+  const hapticPill = document.getElementById('haptic-pill');
   if (!toggle || !popout) return;
 
   function updatePills() {
     const isDark = (document.documentElement.getAttribute('data-theme') || 'light') === 'dark';
     themePill.classList.toggle('active', isDark);
     soundPill.classList.toggle('active', !mobileState.data.soundMuted);
+    hapticPill.classList.toggle('active', mobileState.data.haptic);
   }
   updatePills();
 
@@ -202,6 +219,15 @@ function initSettingsPopout() {
       mobileState.data.soundMuted = !mobileState.data.soundMuted;
       scheduleSave();
       updatePills();
+      playSound('click');
+    });
+  }
+  if (hapticRow) {
+    hapticRow.addEventListener('click', () => {
+      mobileState.data.haptic = !mobileState.data.haptic;
+      scheduleSave();
+      updatePills();
+      haptic('light');
       playSound('click');
     });
   }
@@ -363,6 +389,7 @@ function renderTaskItem(task, date, idx, includeDelete = false) {
   const subtasksHtml = (task.subtasks && task.subtasks.length) ? buildRecurringSubtasksHTML(task.subtasks) : '';
   return `
     <li class='task-item' data-date='${date}' data-idx='${idx}'>
+      <span class='drag-handle' aria-label='Reorder'>⋮⋮</span>
       <div style='flex:1;min-width:0;'>
         <div class='task-text ${task.done ? 'done' : ''}'>${escapeHtml(task.text)}</div>
         ${renderTaskMeta(task, date)}
@@ -437,7 +464,72 @@ function bindTaskList(container, refreshFn, includeDelete = true) {
         refreshFn();
       });
     });
+
+    bindDragReorder(li, refreshFn);
   });
+}
+
+function bindDragReorder(li, refreshFn) {
+  const handle = li.querySelector('.drag-handle');
+  if (!handle) return;
+  handle.style.touchAction = 'none';
+  let dragEl = null;
+  let dragList = null;
+  let dragRefreshFn = null;
+
+  handle.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.preventDefault();
+    dragEl = li;
+    dragList = li.parentElement;
+    dragRefreshFn = refreshFn;
+    li.classList.add('dragging');
+    try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+
+  const endDrag = e => {
+    if (!dragEl) return;
+    try { handle.releasePointerCapture(e.pointerId); } catch (err) {}
+    dragEl.classList.remove('dragging');
+    const list = dragList;
+    const refresh = dragRefreshFn;
+    if (list) {
+      const items = [...list.querySelectorAll('.task-item')];
+      if (items.length) {
+        const sameDate = items.every(item => item.dataset.date === items[0].dataset.date);
+        if (sameDate) {
+          const date = items[0].dataset.date;
+          const tasks = mobileState.data.tasks[date] || [];
+          const ordered = items.map(item => {
+            const idx = Number(item.dataset.idx);
+            return tasks[idx];
+          }).filter(Boolean);
+          if (ordered.length === items.length) {
+            mobileState.data.tasks[date] = ordered;
+            scheduleSave();
+          }
+        }
+      }
+    }
+    dragEl = dragList = dragRefreshFn = null;
+    if (refresh) refresh();
+  };
+
+  handle.addEventListener('pointermove', e => {
+    if (!dragEl || !dragList) return;
+    e.preventDefault();
+    const y = e.clientY;
+    const siblings = [...dragList.children].filter(child => child !== dragEl);
+    const after = siblings.find(child => {
+      const rect = child.getBoundingClientRect();
+      return y < rect.top + rect.height / 2;
+    });
+    if (after) dragList.insertBefore(dragEl, after);
+    else dragList.appendChild(dragEl);
+  });
+
+  handle.addEventListener('pointerup', endDrag);
+  handle.addEventListener('pointercancel', endDrag);
 }
 
 /* Auth */
@@ -835,34 +927,52 @@ function openDeferOptions(date, idx, onComplete = null) {
 /* Calendar */
 function renderMobileCalendar(container) {
   const today = dateKey(new Date());
-  const days = [];
-  for (let i = 0; i < 14; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    days.push(dateKey(d));
-  }
+  if (!mobileState.calendarMonth) mobileState.calendarMonth = dateKey(new Date()).slice(0, 7) + '-01';
+  const [year, month] = mobileState.calendarMonth.split('-').map(Number);
+  const firstDay = new Date(year, month - 1, 1).getDay();
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const monthLabel = new Date(year, month - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
-  container.innerHTML = `
-    <div class='section-title'>Next 14 days</div>
-    ${days.map((date, i) => {
-      const count = (mobileState.data.tasks[date] || []).filter(t => !t.done).length;
-      const d = new Date(date + 'T00:00:00');
-      const name = i18nDay(d.getDay());
-      const isToday = date === today;
-      return `
-        <div class='day-row ${isToday ? 'today' : ''}' data-date='${date}'>
-          <div class='day-info'>
-            <span class='day-name'>${isToday ? 'Today' : name}</span>
-            <span class='day-date'>${formatShortDate(date)}</span>
-          </div>
-          <span class='day-count ${count ? '' : 'zero'}'>${count}</span>
-        </div>
-      `;
-    }).join('')}
+  let html = `
+    <div class='calendar-header'>
+      <button class='calendar-nav' data-dir='-1' aria-label='Previous month'>&lsaquo;</button>
+      <span class='calendar-month'>${monthLabel}</span>
+      <button class='calendar-nav' data-dir='1' aria-label='Next month'>&rsaquo;</button>
+    </div>
+    <div class='calendar-weekdays'>${weekdays.map(d => `<span>${d}</span>`).join('')}</div>
+    <div class='calendar-grid'>
   `;
+  for (let i = 0; i < firstDay; i++) html += `<div class='calendar-cell empty'></div>`;
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const count = (mobileState.data.tasks[date] || []).filter(t => !t.done).length;
+    const isToday = date === today;
+    html += `
+      <div class='calendar-cell ${isToday ? 'today' : ''}' data-date='${date}'>
+        <span class='calendar-day'>${day}</span>
+        ${count ? `<span class='calendar-count'>${count}</span>` : ''}
+      </div>
+    `;
+  }
+  html += `</div><button class='calendar-today-btn primary-btn liquid-btn'>Today</button>`;
+  container.innerHTML = html;
 
-  container.querySelectorAll('.day-row').forEach(row => {
-    row.addEventListener('click', () => openDayFlipOut(row.dataset.date));
+  container.querySelectorAll('.calendar-cell[data-date]').forEach(cell => {
+    cell.addEventListener('click', () => openDayFlipOut(cell.dataset.date));
+  });
+  container.querySelectorAll('.calendar-nav').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const dir = parseInt(btn.dataset.dir, 10);
+      const d = new Date(year, month - 1 + dir, 1);
+      mobileState.calendarMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+      refreshCurrentView();
+    });
+  });
+  const todayBtn = container.querySelector('.calendar-today-btn');
+  if (todayBtn) todayBtn.addEventListener('click', () => {
+    mobileState.calendarMonth = dateKey(new Date()).slice(0, 7) + '-01';
+    refreshCurrentView();
   });
 }
 
@@ -1458,6 +1568,7 @@ function showModal(title, body, onConfirm) {
 }
 
 function haptic(style = 'light') {
+  if (mobileState.data && mobileState.data.haptic === false) return;
   if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics) {
     try { window.Capacitor.Plugins.Haptics.impact({ style }); } catch (e) {}
   } else if (navigator.vibrate) {
@@ -1473,6 +1584,56 @@ function bindGlobalHaptics() {
   });
 }
 
+function closeModal() {
+  const overlay = document.getElementById('modal-overlay');
+  if (overlay) overlay.classList.remove('active');
+}
+
+function initEdgeSwipe() {
+  let startX = null;
+  let startY = null;
+  let startTime = null;
+  const edgeWidth = 28;
+
+  document.addEventListener('touchstart', e => {
+    const touch = e.touches[0];
+    if (touch.clientX > edgeWidth) return;
+    startX = touch.clientX;
+    startY = touch.clientY;
+    startTime = e.timeStamp;
+  }, { passive: true });
+
+  document.addEventListener('touchmove', e => {
+    if (startX === null) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - startX;
+    if (dx > 10) e.preventDefault();
+  }, { passive: false });
+
+  document.addEventListener('touchend', e => {
+    if (startX === null || startY === null || startTime === null) return;
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - startX;
+    const dy = touch.clientY - startY;
+    const dt = e.timeStamp - startTime;
+    if (dx > 60 && Math.abs(dy) < 60 && dt < 700) {
+      const flipout = document.getElementById('flipout');
+      const modal = document.getElementById('modal-overlay');
+      const popout = document.getElementById('settings-popout');
+      if (modal && modal.classList.contains('active')) {
+        closeModal();
+      } else if (flipout && flipout.classList.contains('active')) {
+        closeFlipOut();
+      } else if (popout && popout.classList.contains('active')) {
+        popout.classList.remove('active');
+      } else if (mobileState.currentView !== 'dashboard') {
+        setView('dashboard');
+      }
+    }
+    startX = startY = startTime = null;
+  }, { passive: true });
+}
+
 /* Boot */
 // Global stubs expected by renderer/recurring.js
 window.renderCalendar = () => refreshCurrentView();
@@ -1485,11 +1646,13 @@ async function boot() {
     return;
   }
   mobileState.users = await window.hiwayAPI.getUsers();
-  const defaults = { tasks: {}, projects: [], notes: [], postponed: [], trash: [], spreadsheets: [], recurring: [], theme: 'light', soundMuted: false };
+  const defaults = { tasks: {}, projects: [], notes: [], postponed: [], trash: [], spreadsheets: [], recurring: [], theme: 'light', soundMuted: false, haptic: true };
   const saved = await window.hiwayAPI.getData();
   mobileState.data = Object.assign(defaults, saved);
   if (!Array.isArray(mobileState.data.recurring)) mobileState.data.recurring = [];
   if (typeof mobileState.data.soundMuted !== 'boolean') mobileState.data.soundMuted = false;
+  if (typeof mobileState.data.haptic !== 'boolean') mobileState.data.haptic = true;
+  if (!mobileState.calendarMonth) mobileState.calendarMonth = dateKey(new Date()).slice(0, 7) + '-01';
   autoRollover();
   syncRecurringInstances();
   checkRecurringReminders();
@@ -1498,6 +1661,7 @@ async function boot() {
   bindGlobalHaptics();
   initAmbientSounds();
   initSettingsPopout();
+  initEdgeSwipe();
   document.getElementById('flipout').addEventListener('click', e => {
     if (e.target === document.getElementById('flipout') || e.target.classList.contains('flipout-backdrop')) closeFlipOut();
   });
