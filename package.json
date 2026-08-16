@@ -1,6 +1,6 @@
 {
   "name": "hiway",
-  "version": "1.0.45",
+  "version": "1.0.46",
   "description": "Onward - futuristic task and productivity manager for Mac and Windows",
   "main": "main.js",
   "author": "hugging-phace",
@@ -39,10 +39,10 @@
     },
     "appx": {
       "displayName": "Onward: Task Manager",
-      "identityName": "huggingphace.onward",
-      "applicationId": "huggingphace.Onward",
-      "publisher": "CN=Dev Publisher",
-      "publisherDisplayName": "hugging-phace",
+      "identityName": "aramoon.OnwardTaskManager",
+      "applicationId": "Onward",
+      "publisher": "CN=0B9E00D9-5265-4D28-955C-12EA771F1F35",
+      "publisherDisplayName": "aramoon",
       "backgroundColor": "#1a0b2e",
       "artifactName": "Onward-${version}.msix"
     },
