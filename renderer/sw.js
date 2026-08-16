@@ -1,4 +1,4 @@
-const CACHE_NAME = 'onward-v6';
+const CACHE_NAME = 'onward-v8';
 const CORE_ASSETS = [
   '/',
   '/mobile.html',

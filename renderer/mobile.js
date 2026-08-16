@@ -512,11 +512,15 @@ function bindDragReorder(li, refreshFn) {
   const handle = li.querySelector('.drag-handle');
   if (!handle) return;
   handle.style.touchAction = 'none';
+  handle.style.userSelect = 'none';
+  handle.style.webkitUserSelect = 'none';
+
   let dragEl = null;
   let dragList = null;
   let dragRefreshFn = null;
   let startY = null;
   let hasMoved = false;
+  let placeholder = null;
 
   handle.addEventListener('pointerdown', e => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -526,18 +530,64 @@ function bindDragReorder(li, refreshFn) {
     dragRefreshFn = refreshFn;
     startY = e.clientY;
     hasMoved = false;
-    li.classList.add('dragging');
+
+    const rect = dragEl.getBoundingClientRect();
+    placeholder = document.createElement('li');
+    placeholder.className = 'task-item drag-placeholder';
+    placeholder.style.height = rect.height + 'px';
+    placeholder.style.visibility = 'hidden';
+    placeholder.style.marginBottom = getComputedStyle(dragEl).marginBottom;
+    dragList.insertBefore(placeholder, dragEl);
+
+    dragEl.classList.add('dragging');
+    dragEl.style.position = 'fixed';
+    dragEl.style.top = rect.top + 'px';
+    dragEl.style.left = rect.left + 'px';
+    dragEl.style.width = rect.width + 'px';
+    dragEl.style.zIndex = '1000';
+    dragEl.style.transition = 'none';
+    dragEl.style.boxSizing = 'border-box';
+
     haptic('light');
     try { handle.setPointerCapture(e.pointerId); } catch (err) {}
   });
 
+  const findDropTarget = y => {
+    if (!dragList) return null;
+    const siblings = [...dragList.children].filter(child => child !== dragEl && child !== placeholder);
+    for (const child of siblings) {
+      const rect = child.getBoundingClientRect();
+      if (y < rect.top + rect.height / 2) return child;
+    }
+    return null;
+  };
+
   const endDrag = e => {
     if (!dragEl) return;
     try { handle.releasePointerCapture(e.pointerId); } catch (err) {}
-    dragEl.classList.remove('dragging');
+
     const list = dragList;
     const refresh = dragRefreshFn;
-    if (list && hasMoved) {
+    const moved = hasMoved;
+
+    const target = findDropTarget(e.clientY);
+    if (placeholder) {
+      if (target) list.insertBefore(dragEl, target);
+      else list.appendChild(dragEl);
+      placeholder.remove();
+      placeholder = null;
+    }
+
+    dragEl.classList.remove('dragging');
+    dragEl.style.position = '';
+    dragEl.style.top = '';
+    dragEl.style.left = '';
+    dragEl.style.width = '';
+    dragEl.style.zIndex = '';
+    dragEl.style.transition = '';
+    dragEl.style.boxSizing = '';
+
+    if (list && moved) {
       const items = [...list.querySelectorAll('.task-item')];
       if (items.length) {
         const sameDate = items.every(item => item.dataset.date === items[0].dataset.date);
@@ -555,25 +605,28 @@ function bindDragReorder(li, refreshFn) {
         }
       }
     }
+
     dragEl = dragList = dragRefreshFn = null;
     startY = null;
-    if (refresh && hasMoved) refresh();
     hasMoved = false;
+    if (refresh && moved) refresh();
   };
 
   handle.addEventListener('pointermove', e => {
     if (!dragEl || !dragList) return;
     e.preventDefault();
-    if (startY !== null && Math.abs(e.clientY - startY) > 4) hasMoved = true;
+    if (startY !== null && Math.abs(e.clientY - startY) > 6) hasMoved = true;
     if (!hasMoved) return;
-    const y = e.clientY;
-    const siblings = [...dragList.children].filter(child => child !== dragEl);
-    const after = siblings.find(child => {
-      const rect = child.getBoundingClientRect();
-      return y < rect.top + rect.height / 2;
-    });
-    if (after) dragList.insertBefore(dragEl, after);
-    else dragList.appendChild(dragEl);
+
+    const rect = placeholder ? placeholder.getBoundingClientRect() : dragEl.getBoundingClientRect();
+    const deltaY = e.clientY - startY;
+    dragEl.style.top = (rect.top + deltaY) + 'px';
+
+    const target = findDropTarget(e.clientY);
+    if (placeholder) {
+      if (target) dragList.insertBefore(placeholder, target);
+      else dragList.appendChild(placeholder);
+    }
   });
 
   handle.addEventListener('pointerup', endDrag);
