@@ -2,6 +2,7 @@
 const RECURRING_RANGE_DAYS = 120;
 const WEEKDAY_LABELS = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 const WEEKDAY_TITLES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const WEEKDAY_SHORTS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
 function getRecurringDateRange() {
   const today = new Date();
@@ -65,7 +66,7 @@ function frequencyLabel(cycle) {
   return cycle;
 }
 
-function recurringMetaText(rec) {
+function recurringMetaText(rec, short = false) {
   if (!rec || !rec.cycle) return '';
   const ord = n => {
     const s = ['th','st','nd','rd'];
@@ -74,16 +75,17 @@ function recurringMetaText(rec) {
   };
   const start = rec.startDate ? new Date(rec.startDate + 'T00:00:00') : null;
   const monthName = (d, len = 'short') => d.toLocaleDateString('en-US', { month: len });
+  const weekdays = short ? WEEKDAY_SHORTS : WEEKDAY_TITLES;
   if (rec.cycle === 'daily') return 'every day';
-  if (rec.cycle === 'weekly' && start) return `every ${WEEKDAY_TITLES[start.getDay()]}`;
+  if (rec.cycle === 'weekly' && start) return `every ${weekdays[start.getDay()]}`;
   if (rec.cycle === 'monthly' && start) return `monthly on the ${start.getDate()}${ord(start.getDate())}`;
-  if (rec.cycle === 'yearly' && start) return `yearly on ${monthName(start)} ${start.getDate()}`;
+  if (rec.cycle === 'yearly' && start) return short ? `yearly ${monthName(start)} ${start.getDate()}` : `yearly on ${monthName(start)} ${start.getDate()}`;
   if (rec.cycle === 'custom') {
     if (rec.customWeekdays && rec.customWeekdays.length) {
-      const days = [...rec.customWeekdays].sort((a,b) => a - b).map(d => WEEKDAY_TITLES[d]).join(', ');
+      const days = [...rec.customWeekdays].sort((a,b) => a - b).map(d => weekdays[d]).join(', ');
       return `every ${days}`;
     }
-    if (rec.customDates && rec.customDates.length) return `${rec.customDates.length} selected dates`;
+    if (rec.customDates && rec.customDates.length) return short ? `${rec.customDates.length} dates` : `${rec.customDates.length} selected dates`;
     return 'Custom';
   }
   return frequencyLabel(rec.cycle);
@@ -134,7 +136,7 @@ function createRecurringTaskInstance(rec, instanceDate) {
   const task = createTask(rec.title, instanceDate, rec.sop || '', instanceDate, null, null, false, null, null);
   task.recurringId = rec.id;
   task.recurringInstanceDate = instanceDate;
-  task.frequency = frequencyLabel(rec.cycle);
+  task.frequency = recurringMetaText(rec, true);
   task.subtasks = subtasks;
   return task;
 }
