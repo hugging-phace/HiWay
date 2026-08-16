@@ -526,7 +526,6 @@ function refreshAllViews() {
   renderNotes();
   renderDeferred();
   renderDashboard();
-  renderSpreadsheets();
   renderRecurring();
   renderReports();
   switchView(appState.currentView || 'dashboard');
@@ -738,7 +737,7 @@ function switchView(view) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   const target = document.getElementById('view-' + view);
   if (target) target.classList.add('active');
-  const viewTitles = { dashboard: 'Overview', calendar: 'Calendar', projects: 'Projects', notes: 'Brainstorm', reports: 'Reports', spreadsheets: 'Spreadsheets', recurring: 'Recurring', deferred: 'Deferred' };
+  const viewTitles = { dashboard: 'Overview', calendar: 'Calendar', projects: 'Projects', notes: 'Brainstorm', reports: 'Reports', recurring: 'Recurring', deferred: 'Deferred' };
   document.getElementById('page-title').textContent = viewTitles[view] || (view.charAt(0).toUpperCase() + view.slice(1));
   if (view === 'dashboard') renderDashboard();
   if (view === 'calendar') renderCalendar();
@@ -746,7 +745,6 @@ function switchView(view) {
   if (view === 'notes') renderNotes();
   if (view === 'deferred') renderDeferred();
   if (view === 'reports') renderReports();
-  if (view === 'spreadsheets') renderSpreadsheets();
   if (view === 'recurring') renderRecurring();
   if (container) {
     requestAnimationFrame(() => {
@@ -2401,7 +2399,6 @@ function addProjectSpreadsheet(projectId, title) {
   lastCreatedSheetId = sheet.id;
   scheduleSave();
   renderProjects();
-  renderSpreadsheets();
   renderDashboard();
   refreshDashboardDetail();
   refreshPeek();
@@ -3459,12 +3456,13 @@ async function exportSpreadsheet() {
 function initSpreadsheets() {
   const taskToggle = document.getElementById('new-sheet-task');
   const taskDate = document.getElementById('new-sheet-task-date');
-  if (taskDate) {
+  const newSheetBtn = document.getElementById('new-sheet-btn');
+  if (taskToggle && taskDate) {
     taskDate.value = dateKey(new Date());
     taskDate.disabled = !taskToggle.checked;
     taskToggle.addEventListener('change', () => { taskDate.disabled = !taskToggle.checked; });
   }
-  document.getElementById('new-sheet-btn').addEventListener('click', () => {
+  if (newSheetBtn) newSheetBtn.addEventListener('click', () => {
     const input = document.getElementById('new-sheet-title');
     const title = input.value.trim();
     playSound('confirm');
@@ -3532,6 +3530,7 @@ function initSpreadsheets() {
 
 function renderSpreadsheets() {
   const grid = document.getElementById('spreadsheets-grid');
+  if (!grid) return;
   grid.innerHTML = '';
   sortSpreadsheets();
   const sheets = appState.data.spreadsheets || [];
@@ -3567,10 +3566,10 @@ function renderSpreadsheets() {
   });
 }
 
-function openSpreadsheet(id, inPlace = false) {
+function openSpreadsheet(id, inPlace = true) {
   playSound('open');
-  if (!inPlace) switchView('spreadsheets');
-  else closePeek();
+  if (!inPlace) return;
+  closePeek();
   sortSpreadsheets();
   const sheet = appState.data.spreadsheets.find(s => s.id === id);
   if (!sheet) return;
