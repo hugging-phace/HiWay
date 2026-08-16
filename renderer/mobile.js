@@ -1640,6 +1640,16 @@ window.renderCalendar = () => refreshCurrentView();
 window.renderDashboard = () => refreshCurrentView();
 window.refreshDashboardDetail = () => {};
 
+function initOrientationLock() {
+  function lock() {
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('portrait').catch(() => {});
+    }
+  }
+  lock();
+  window.addEventListener('orientationchange', lock);
+}
+
 async function boot() {
   if (!window.hiwayAPI) {
     document.getElementById('auth-error').textContent = 'Onward mobile must run inside the Onward app or a local server with test-mock.';
@@ -1662,6 +1672,7 @@ async function boot() {
   initAmbientSounds();
   initSettingsPopout();
   initEdgeSwipe();
+  initOrientationLock();
   document.getElementById('flipout').addEventListener('click', e => {
     if (e.target === document.getElementById('flipout') || e.target.classList.contains('flipout-backdrop')) closeFlipOut();
   });
