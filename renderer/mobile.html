@@ -4,7 +4,11 @@
   <meta charset='UTF-8'>
   <meta name='viewport' content='width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no'>
   <meta name='theme-color' content='#ffffff'>
-  <title>Onward Mobile</title>
+  <meta name='apple-mobile-web-app-capable' content='yes'>
+  <meta name='apple-mobile-web-app-status-bar-style' content='default'>
+  <link rel='manifest' href='manifest.json'>
+  <link rel='apple-touch-icon' href='assets/logo.png'>
+  <title>Onward</title>
   <link rel='stylesheet' href='mobile.css'>
 </head>
 <body>
@@ -35,10 +39,14 @@
           <span>Onward</span>
         </div>
         <div class='topbar-pill topbar-actions'>
-          <button id='theme-toggle' class='icon-btn' title='Toggle theme'>◐</button>
+          <button id='settings-toggle' class='icon-btn' title='Settings'>⚙</button>
           <span id='current-user' class='user-pill'>@user</span>
         </div>
       </header>
+      <div id='settings-popout' class='settings-popout glass-card'>
+        <div class='settings-row' id='theme-toggle-row'><span>Dark mode</span><span class='toggle-pill' id='theme-pill'><span class='toggle-knob'></span></span></div>
+        <div class='settings-row' id='sound-toggle-row'><span>Sound effects</span><span class='toggle-pill active' id='sound-pill'><span class='toggle-knob'></span></span></div>
+      </div>
       <main id='mobile-content' class='mobile-content'></main>
       <nav class='mobile-bottom-nav'>
         <button data-view='dashboard' class='nav-item active'><span class='nav-icon'>◈</span><span class='nav-label'>Overview</span></button>
@@ -61,8 +69,8 @@
     </div>
   </div>
 
-  <div id='modal' class='mobile-modal'>
-    <div class='modal-card glass-card'>
+  <div id='modal-overlay' class='mobile-modal'>
+    <div id='modal-card' class='modal-card glass-card'>
       <h3 id='modal-title'>Title</h3>
       <p id='modal-body'></p>
       <div class='modal-actions'>
@@ -75,6 +83,12 @@
   <div id='toast' class='mobile-toast'></div>
 
   <script src='test-mock.js'></script>
+  <script src='recurring.js'></script>
   <script src='mobile.js'></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+  </script>
 </body>
 </html>

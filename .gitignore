@@ -1,4 +1,5 @@
 node_modules/
 dist/
+mobile-site/
 *.log
 .DS_Store

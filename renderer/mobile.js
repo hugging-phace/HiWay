@@ -10,10 +10,15 @@ const mobileState = {
     postponed: [],
     trash: [],
     spreadsheets: [],
-    theme: 'light'
+    recurring: [],
+    theme: 'light',
+    soundMuted: false
   },
   currentView: 'dashboard'
 };
+
+const appState = mobileState;
+let settingsPopoutOpen = false;
 
 let saveTimeout;
 let authMode = 'login';
@@ -59,6 +64,80 @@ function scheduleSave() {
   }, 400);
 }
 
+let audioCtx = null;
+
+function getAudioContext() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function isSoundMuted() {
+  return !!(mobileState.data && mobileState.data.soundMuted);
+}
+
+function playSound(type) {
+  window._soundPlayedThisClick = true;
+  if (isSoundMuted()) return;
+  try {
+    const ctx = getAudioContext();
+    if (ctx.state === 'suspended') ctx.resume();
+    const t = ctx.currentTime;
+    const master = ctx.createGain();
+    master.connect(ctx.destination);
+    master.gain.setValueAtTime(0.0001, t);
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.Q.value = 0.5;
+    filter.connect(master);
+    let dur = 0.12;
+
+    function tone(freqStart, freqEnd, gain, attack, decay, filterFreq, wave = 'sine') {
+      const osc = ctx.createOscillator();
+      osc.type = wave;
+      osc.connect(filter);
+      filter.frequency.setValueAtTime(filterFreq, t);
+      osc.frequency.setValueAtTime(freqStart, t);
+      if (freqEnd !== freqStart) osc.frequency.exponentialRampToValueAtTime(freqEnd, t + decay);
+      master.gain.linearRampToValueAtTime(gain, t + attack);
+      master.gain.exponentialRampToValueAtTime(0.0001, t + decay);
+      osc.start(t);
+      osc.stop(t + decay);
+    }
+
+    switch (type) {
+      case 'click': tone(820, 480, 0.035, 0.006, 0.14, 900, 'sine'); dur = 0.14; break;
+      case 'complete': {
+        const osc1 = ctx.createOscillator();
+        osc1.type = 'sine';
+        osc1.connect(filter);
+        filter.frequency.setValueAtTime(2400, t);
+        osc1.frequency.setValueAtTime(523.25, t);
+        osc1.frequency.setValueAtTime(659.25, t + 0.12);
+        master.gain.linearRampToValueAtTime(0.16, t + 0.02);
+        master.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+        osc1.start(t);
+        osc1.stop(t + 0.6);
+        dur = 0.6;
+        break;
+      }
+      case 'delete': tone(160, 80, 0.14, 0.005, 0.14, 900, 'triangle'); dur = 0.14; break;
+      case 'confirm': tone(440, 550, 0.12, 0.015, 0.35, 2600, 'sine'); dur = 0.35; break;
+      case 'open': tone(280, 520, 0.07, 0.02, 0.22, 1800, 'sine'); dur = 0.22; break;
+      case 'defer': tone(420, 300, 0.06, 0.02, 0.22, 1600, 'sine'); dur = 0.22; break;
+      case 'project': tone(180, 130, 0.1, 0.01, 0.18, 700, 'triangle'); dur = 0.18; break;
+    }
+  } catch (e) {}
+}
+
+function initAmbientSounds() {
+  const SOUNDABLE = 'button, .nav-item, .mobile-tile, .day-row, .catch-card, .more-list li, .note-card, .deferred-card, .modal-option, .action-btn, .recurring-card, .recurring-weekday, .subtask-item button';
+  document.addEventListener('pointerdown', () => { window._soundPlayedThisClick = false; }, true);
+  document.addEventListener('click', e => {
+    if (window._soundPlayedThisClick || isSoundMuted()) return;
+    if (e.target.closest(SOUNDABLE)) playSound('click');
+  }, false);
+}
+
 function toast(message) {
   const el = document.getElementById('toast');
   el.textContent = message;
@@ -77,6 +156,55 @@ function toggleTheme() {
   document.documentElement.setAttribute('data-theme', next);
   mobileState.data.theme = next;
   scheduleSave();
+}
+
+function initSettingsPopout() {
+  const toggle = document.getElementById('settings-toggle');
+  const popout = document.getElementById('settings-popout');
+  const themeRow = document.getElementById('theme-toggle-row');
+  const soundRow = document.getElementById('sound-toggle-row');
+  const themePill = document.getElementById('theme-pill');
+  const soundPill = document.getElementById('sound-pill');
+  if (!toggle || !popout) return;
+
+  function updatePills() {
+    const isDark = (document.documentElement.getAttribute('data-theme') || 'light') === 'dark';
+    themePill.classList.toggle('active', isDark);
+    soundPill.classList.toggle('active', !mobileState.data.soundMuted);
+  }
+  updatePills();
+
+  toggle.addEventListener('click', e => {
+    e.stopPropagation();
+    settingsPopoutOpen = !settingsPopoutOpen;
+    popout.classList.toggle('active', settingsPopoutOpen);
+    playSound('click');
+  });
+
+  const closePopout = () => {
+    settingsPopoutOpen = false;
+    popout.classList.remove('active');
+  };
+
+  document.addEventListener('click', e => {
+    if (settingsPopoutOpen && !popout.contains(e.target) && e.target !== toggle) closePopout();
+  });
+
+  if (themeRow) {
+    themeRow.addEventListener('click', () => {
+      toggleTheme();
+      updatePills();
+      playSound('click');
+    });
+  }
+  if (soundRow) {
+    soundRow.addEventListener('click', () => {
+      mobileState.data.soundMuted = !mobileState.data.soundMuted;
+      scheduleSave();
+      updatePills();
+      playSound('click');
+    });
+  }
 }
 
 function autoRollover() {
@@ -185,16 +313,20 @@ function getProjectById(id) {
   return mobileState.data.projects.find(p => p.id === id);
 }
 
-function createTask(text, date, notes = '', plantedDate = null, id = null, projectId = null, done = false) {
+function createTask(text, date, notes = '', plantedDate = null, id = null, projectId = null, done = false, completedDate = null, spreadsheetId = null) {
   return {
     text,
     done: !!done,
     notes: notes || '',
     plantedDate: plantedDate || dateKey(date),
-    completedDate: done ? dateKey(new Date()) : null,
+    completedDate: completedDate || (done ? dateKey(new Date()) : null),
     id: id || uuid(),
     projectId: projectId || null,
-    spreadsheetId: null
+    spreadsheetId: spreadsheetId || null,
+    recurringId: null,
+    recurringInstanceDate: null,
+    frequency: null,
+    subtasks: []
   };
 }
 
@@ -206,6 +338,106 @@ function createProject(title) {
     completed: false,
     created: dateKey(new Date())
   };
+}
+
+function getRecurringById(id) {
+  return (mobileState.data.recurring || []).find(r => r.id === id);
+}
+
+function renderTaskMeta(task, date) {
+  if (task.recurringId) {
+    const rec = getRecurringById(task.recurringId);
+    if (rec) {
+      const freq = recurringMetaText(rec, true);
+      return `<div class='task-recurring-meta' data-rid='${escapeHtml(task.recurringId)}'>↻ Recurring ${escapeHtml(freq)}</div>`;
+    }
+  }
+  const planted = task.plantedDate || date;
+  if (planted !== date) {
+    return `<div class='task-recurring-meta' style='color:var(--muted);font-weight:500;'>Planted ${formatShortDate(planted)} · now ${formatShortDate(date)}</div>`;
+  }
+  return '';
+}
+
+function renderTaskItem(task, date, idx, includeDelete = false) {
+  const subtasksHtml = (task.subtasks && task.subtasks.length) ? buildRecurringSubtasksHTML(task.subtasks) : '';
+  return `
+    <li class='task-item' data-date='${date}' data-idx='${idx}'>
+      <div style='flex:1;min-width:0;'>
+        <div class='task-text ${task.done ? 'done' : ''}'>${escapeHtml(task.text)}</div>
+        ${renderTaskMeta(task, date)}
+        ${subtasksHtml}
+      </div>
+      ${taskActionButtons(task, date, idx, includeDelete)}
+    </li>
+  `;
+}
+
+function bindTaskList(container, refreshFn, includeDelete = true) {
+  container.querySelectorAll('.task-item').forEach(li => {
+    const date = li.dataset.date;
+    const idx = Number(li.dataset.idx);
+    const tasks = mobileState.data.tasks[date];
+    if (!tasks || !tasks[idx]) return;
+    const task = tasks[idx];
+
+    const doneBtn = li.querySelector('.done-btn');
+    const undoBtn = li.querySelector('.undo-btn');
+    const deferBtn = li.querySelector('.defer-btn');
+    const deleteBtn = li.querySelector('.delete-btn');
+    const meta = li.querySelector('.task-recurring-meta');
+
+    if (doneBtn) doneBtn.addEventListener('click', e => { e.stopPropagation(); completeTask(date, idx); refreshFn(); });
+    if (undoBtn) undoBtn.addEventListener('click', e => { e.stopPropagation(); undoTask(date, idx); refreshFn(); });
+    if (deferBtn) deferBtn.addEventListener('click', e => { e.stopPropagation(); openDeferOptions(date, idx, refreshFn); });
+    if (includeDelete && deleteBtn) deleteBtn.addEventListener('click', e => { e.stopPropagation(); confirmDelete(date, idx, refreshFn); });
+    if (meta && meta.dataset.rid) {
+      meta.addEventListener('click', e => {
+        e.stopPropagation();
+        const rec = getRecurringById(meta.dataset.rid);
+        if (rec) openRecurringEditor(rec);
+      });
+    }
+
+    li.querySelectorAll('.subtask-complete').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const sid = btn.dataset.sid;
+        const sub = (task.subtasks || []).find(s => s.id === sid);
+        if (sub) {
+          sub.done = !sub.done;
+          scheduleSave();
+          refreshFn();
+        }
+      });
+    });
+
+    li.querySelectorAll('.subtask-delete').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const sid = btn.dataset.sid;
+        const sub = (task.subtasks || []).find(s => s.id === sid);
+        if (!sub) return;
+        const text = sub.text;
+        if (task.recurringId) {
+          const rec = getRecurringById(task.recurringId);
+          if (rec && rec.subtasks) rec.subtasks = rec.subtasks.filter(s => s.text !== text);
+          Object.values(mobileState.data.tasks || {}).forEach(list => {
+            list.forEach(t => {
+              if (t.recurringId === task.recurringId && t.subtasks) {
+                t.subtasks = t.subtasks.filter(s => s.text !== text);
+              }
+            });
+          });
+          syncRecurringInstances();
+        } else {
+          task.subtasks = (task.subtasks || []).filter(s => s.id !== sid);
+        }
+        scheduleSave();
+        refreshFn();
+      });
+    });
+  });
 }
 
 /* Auth */
@@ -272,7 +504,7 @@ function updateNavPill(view) {
     pill.className = 'nav-active-pill';
     nav.appendChild(pill);
   }
-  const activeForMore = (view === 'brainstorm' || view === 'deferred' || view === 'projects');
+  const activeForMore = (view === 'brainstorm' || view === 'deferred' || view === 'projects' || view === 'recurring');
   nav.querySelectorAll('.nav-item').forEach(btn => {
     const isActive = btn.dataset.view === view || (activeForMore && btn.dataset.view === 'more');
     btn.classList.toggle('active', isActive);
@@ -341,7 +573,8 @@ function initNavigation() {
   document.querySelectorAll('.mobile-bottom-nav .nav-item').forEach(btn => {
     btn.addEventListener('click', () => setView(btn.dataset.view));
   });
-  document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+  const themeToggle = document.getElementById('theme-toggle');
+  if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
 }
 
 function setView(view) {
@@ -363,23 +596,24 @@ function refreshCurrentView() {
 }
 
 function renderView(view, content) {
-  if (view === 'dashboard') renderDashboard(content);
-  else if (view === 'calendar') renderCalendar(content);
+  if (view === 'dashboard') renderMobileDashboard(content);
+  else if (view === 'calendar') renderMobileCalendar(content);
   else if (view === 'catchup') renderCatchUp(content);
   else if (view === 'projects') renderProjects(content);
   else if (view === 'more') renderMore(content);
   else if (view === 'brainstorm') renderBrainstorm(content);
   else if (view === 'deferred') renderDeferred(content);
+  else if (view === 'recurring') renderRecurringView(content);
 }
 
 /* Dashboard */
-function renderDashboard(container) {
+function renderMobileDashboard(container) {
   const { today, done, total } = getTodayStats();
   const upcoming = getUpcomingCount();
   const projects = mobileState.data.projects.filter(p => !p.completed).length;
   const { overdue, rate } = getRolloverStats();
   const rolled = getRolledTasks();
-  const wins = getRecentWins(3);
+  const wins = getRecentWins();
 
   const greeting = `<div class='greeting'>Good day, @${escapeHtml(mobileState.user)}<span>Here is where you stand.</span></div>`;
 
@@ -394,12 +628,7 @@ function renderDashboard(container) {
   const todayTasks = (mobileState.data.tasks[today] || []).slice(0, 4);
   const todayList = todayTasks.length ? `
     <ul class='task-list' style='margin-top:10px;'>
-      ${todayTasks.map((t, i) => `
-        <li class='task-item'>
-          <span class='task-text ${t.done ? 'done' : ''}'>${escapeHtml(t.text)}</span>
-          ${taskActionButtons(t, today, i, false)}
-        </li>
-      `).join('')}
+      ${todayTasks.map((t, i) => renderTaskItem(t, today, i, false)).join('')}
     </ul>
   ` : `<p class='empty-state'>No tasks for today yet.</p>`;
 
@@ -439,7 +668,7 @@ function renderDashboard(container) {
     ` : ''}
   `;
 
-  bindTaskButtons(container, () => renderDashboard(container), false);
+  bindTaskList(container, () => renderMobileDashboard(container), false);
 
   container.querySelectorAll('[data-open]').forEach(tile => {
     tile.addEventListener('click', () => {
@@ -473,6 +702,7 @@ function completeTask(date, idx) {
     }
   }
   scheduleSave();
+  playSound('complete');
   toast('Completed');
 }
 
@@ -491,6 +721,7 @@ function undoTask(date, idx) {
     }
   }
   scheduleSave();
+  playSound('click');
   toast('Reopened');
 }
 
@@ -602,7 +833,7 @@ function openDeferOptions(date, idx, onComplete = null) {
 }
 
 /* Calendar */
-function renderCalendar(container) {
+function renderMobileCalendar(container) {
   const today = dateKey(new Date());
   const days = [];
   for (let i = 0; i < 14; i++) {
@@ -645,12 +876,7 @@ function openDayFlipOut(date) {
   openFlipOut({
     title: label,
     renderBody: body => {
-      const listHtml = tasks.length ? `<ul class='task-list'>${tasks.map((t, i) => `
-        <li class='task-item'>
-          <span class='task-text ${t.done ? 'done' : ''}'>${escapeHtml(t.text)}</span>
-          ${taskActionButtons(t, date, i, true)}
-        </li>
-      `).join('')}</ul>` : '<p class="empty-state">No tasks for this day.</p>';
+      const listHtml = tasks.length ? `<ul class='task-list'>${tasks.map((t, i) => renderTaskItem(t, date, i, true)).join('')}</ul>` : '<p class="empty-state">No tasks for this day.</p>';
 
       body.innerHTML = `
         <div class='add-row' style='margin-bottom:14px;'>
@@ -660,7 +886,7 @@ function openDayFlipOut(date) {
         ${listHtml}
       `;
 
-      bindTaskButtons(body, () => { refreshCurrentView(); openDayFlipOut(date); }, true);
+      bindTaskList(body, () => { refreshCurrentView(); openDayFlipOut(date); }, true);
       const input = body.querySelector('#add-task');
       const addBtn = body.querySelector('#add-task-btn');
       const add = () => {
@@ -692,16 +918,8 @@ function openUpcomingFlipOut() {
         body.innerHTML = '<p class="empty-state">No upcoming tasks. You are all caught up.</p>';
         return;
       }
-      body.innerHTML = `<ul class='task-list'>${upcoming.map(({ date, idx, task }) => `
-        <li class='task-item'>
-          <div style='flex:1;'>
-            <div class='task-text ${task.done ? 'done' : ''}'>${escapeHtml(task.text)}</div>
-            <div class='catch-meta'>${formatShortDate(date)}</div>
-          </div>
-          ${taskActionButtons(task, date, idx, true)}
-        </li>
-      `).join('')}</ul>`;
-      bindTaskButtons(body, () => { refreshCurrentView(); openUpcomingFlipOut(); }, true);
+      body.innerHTML = `<ul class='task-list'>${upcoming.map(({ date, idx, task }) => renderTaskItem(task, date, idx, true)).join('')}</ul>`;
+      bindTaskList(body, () => { refreshCurrentView(); openUpcomingFlipOut(); }, true);
     }
   });
 }
@@ -710,18 +928,22 @@ function addTask(date, text) {
   if (!mobileState.data.tasks[date]) mobileState.data.tasks[date] = [];
   mobileState.data.tasks[date].push(createTask(text, date));
   scheduleSave();
+  playSound('confirm');
   toast('Task added');
   refreshCurrentView();
 }
 
 function confirmDelete(date, idx, refreshFn = null) {
-  const task = mobileState.data.tasks[date][idx];
+  const tasks = mobileState.data.tasks[date];
+  if (!tasks || !tasks[idx]) return;
+  const task = tasks[idx];
   showModal('Move to trash?', `"${escapeHtml(task.text)}" will be moved to trash.`, () => {
-    const [removed] = mobileState.data.tasks[date].splice(idx, 1);
-    if (mobileState.data.tasks[date].length === 0) delete mobileState.data.tasks[date];
+    const [removed] = tasks.splice(idx, 1);
+    if (tasks.length === 0) delete mobileState.data.tasks[date];
     removed.deletedFrom = date;
     mobileState.data.trash.push(removed);
     scheduleSave();
+    playSound('delete');
     toast('Moved to trash');
     if (refreshFn) refreshFn();
     else { closeFlipOut(); refreshCurrentView(); }
@@ -738,6 +960,7 @@ function deferTask(date, idx) {
   task.deferredAt = dateKey(new Date());
   mobileState.data.postponed.unshift(task);
   scheduleSave();
+  playSound('defer');
   toast('Deferred');
 }
 
@@ -798,6 +1021,7 @@ function moveTaskToDate(fromDate, idx, toDate) {
   mobileState.data.tasks[toDate].push(task);
   updateProjectStepDate(task, toDate);
   scheduleSave();
+  playSound('defer');
   toast('Moved');
 }
 
@@ -818,6 +1042,7 @@ function splitToProject(date, idx) {
     mobileState.data.tasks[key].push(createTask(step.text, key, '', key, step.id, project.id));
   });
   scheduleSave();
+  playSound('project');
   toast('Created project from task');
 }
 
@@ -871,6 +1096,7 @@ function renderProjectCard(project) {
 function addProject(title) {
   mobileState.data.projects.unshift(createProject(title));
   scheduleSave();
+  playSound('project');
   toast('Project created');
 }
 
@@ -935,6 +1161,7 @@ function openProjectFlipOut(pid) {
     document.getElementById('mark-project').addEventListener('click', () => {
       project.completed = !project.completed;
       scheduleSave();
+      playSound(project.completed ? 'complete' : 'click');
       toast(project.completed ? 'Project completed' : 'Project reactivated');
       setView('projects');
     });
@@ -952,6 +1179,7 @@ function addStep(pid, text, dateVal) {
   if (!mobileState.data.tasks[key]) mobileState.data.tasks[key] = [];
   mobileState.data.tasks[key].push(createTask(clean, key, '', key, stepId, pid));
   scheduleSave();
+  playSound('confirm');
   toast('Step added');
 }
 
@@ -970,6 +1198,7 @@ function toggleStep(pid, sid) {
     step.done = !step.done;
   }
   scheduleSave();
+  playSound(step.done ? 'complete' : 'click');
   toast(step.done ? 'Step completed' : 'Step reopened');
 }
 
@@ -985,6 +1214,7 @@ function deleteProject(pid) {
   });
   mobileState.data.projects = mobileState.data.projects.filter(pr => pr.id !== pid);
   scheduleSave();
+  playSound('delete');
   toast('Project deleted');
   setView('projects');
 }
@@ -995,6 +1225,7 @@ function renderMore(container) {
     <div class='section-title'>More</div>
     <ul class='more-list'>
       <li data-item='projects'><span>◬ Projects</span><span class='icon'>›</span></li>
+      <li data-item='recurring'><span>↻ Recurring</span><span class='icon'>›</span></li>
       <li data-item='spreadsheets'><span>▦ Spreadsheets</span><span class='icon'>›</span></li>
       <li data-item='reports'><span>▤ Reports</span><span class='icon'>›</span></li>
       <li data-item='brainstorm'><span>✦ Brainstorm</span><span class='icon'>›</span></li>
@@ -1015,6 +1246,7 @@ function renderMore(container) {
       if (item === 'brainstorm') return setView('brainstorm');
       if (item === 'deferred') return setView('deferred');
       if (item === 'projects') return setView('projects');
+      if (item === 'recurring') return setView('recurring');
       openPlaceholder(item);
     });
   });
@@ -1024,11 +1256,13 @@ function addNote(text) {
   if (!mobileState.data.notes) mobileState.data.notes = [];
   mobileState.data.notes.unshift({ id: uuid(), text: text.trim(), created: dateKey(new Date()) });
   scheduleSave();
+  playSound('confirm');
 }
 
 function deleteNote(idx) {
   mobileState.data.notes.splice(idx, 1);
   scheduleSave();
+  playSound('delete');
 }
 
 function renderBrainstorm(container) {
@@ -1075,6 +1309,7 @@ function restoreDeferred(idx) {
   task.deferredAt = null;
   mobileState.data.tasks[today].push(task);
   scheduleSave();
+  playSound('confirm');
   toast('Restored to today');
 }
 
@@ -1085,6 +1320,7 @@ function deleteDeferred(idx) {
   removed.deletedFrom = 'deferred';
   mobileState.data.trash.push(removed);
   scheduleSave();
+  playSound('delete');
   toast('Deleted');
 }
 
@@ -1121,6 +1357,18 @@ function renderDeferred(container) {
     });
   });
   container.querySelector('#back-from-deferred').addEventListener('click', () => setView('more'));
+}
+
+function renderRecurringView(container) {
+  container.innerHTML = `
+    <div class='section-title'>Recurring</div>
+    <p class='subtle-text' style='margin-bottom:16px;'>Tasks that repeat on a schedule.</p>
+    <div id='recurring-list'></div>
+    <button id='new-recurring-btn' class='primary-btn liquid-btn' style='margin-top:16px;width:100%;'>+ New recurring task</button>
+  `;
+  if (typeof renderRecurring === 'function') renderRecurring();
+  const btn = document.getElementById('new-recurring-btn');
+  if (btn) btn.addEventListener('click', () => { if (typeof openRecurringEditor === 'function') openRecurringEditor(); });
 }
 
 function openPlaceholder(name) {
@@ -1167,29 +1415,46 @@ function closeFlipOut() {
 }
 
 /* Modal */
-function showModal(title, body, onConfirm) {
-  const modal = document.getElementById('modal');
+function openModal(title, bodyHTML, confirmText = 'Confirm', onConfirm, onCancel) {
+  playSound('open');
+  const overlay = document.getElementById('modal-overlay');
+  const card = document.getElementById('modal-card');
+  if (card) card.classList.remove('wide');
   document.getElementById('modal-title').textContent = title;
-  document.getElementById('modal-body').textContent = body;
-  modal.classList.add('active');
-
+  const body = document.getElementById('modal-body');
+  if (body) body.innerHTML = bodyHTML || '';
   const confirm = document.getElementById('modal-confirm');
   const cancel = document.getElementById('modal-cancel');
+  if (confirm) {
+    confirm.textContent = confirmText;
+    confirm.style.display = '';
+  }
+  if (overlay) overlay.classList.add('active');
 
-  const handler = () => {
-    modal.classList.remove('active');
-    onConfirm();
-    confirm.removeEventListener('click', handler);
-    cancel.removeEventListener('click', close);
+  // remove stale recurring action buttons
+  document.querySelectorAll('.modal-actions > .recurring-delete-btn, .modal-actions > .recurring-edit-btn').forEach(b => b.remove());
+
+  const cleanup = () => {
+    if (overlay) overlay.classList.remove('active');
+    if (confirm) confirm.removeEventListener('click', onConfirmHandler);
+    if (cancel) cancel.removeEventListener('click', onCancelHandler);
   };
-  const close = () => {
-    modal.classList.remove('active');
-    confirm.removeEventListener('click', handler);
-    cancel.removeEventListener('click', close);
+  const onConfirmHandler = () => {
+    cleanup();
+    if (typeof onConfirm === 'function') onConfirm();
+  };
+  const onCancelHandler = () => {
+    cleanup();
+    if (typeof onCancel === 'function') onCancel();
   };
 
-  confirm.addEventListener('click', handler);
-  cancel.addEventListener('click', close);
+  if (confirm) confirm.addEventListener('click', onConfirmHandler, { once: true });
+  if (cancel) cancel.addEventListener('click', onCancelHandler, { once: true });
+}
+
+// mobile legacy wrapper: showModal(title, body, onConfirm)
+function showModal(title, body, onConfirm) {
+  openModal(title, body, 'Confirm', onConfirm, () => {});
 }
 
 function haptic(style = 'light') {
@@ -1209,18 +1474,30 @@ function bindGlobalHaptics() {
 }
 
 /* Boot */
+// Global stubs expected by renderer/recurring.js
+window.renderCalendar = () => refreshCurrentView();
+window.renderDashboard = () => refreshCurrentView();
+window.refreshDashboardDetail = () => {};
+
 async function boot() {
   if (!window.hiwayAPI) {
     document.getElementById('auth-error').textContent = 'Onward mobile must run inside the Onward app or a local server with test-mock.';
     return;
   }
   mobileState.users = await window.hiwayAPI.getUsers();
+  const defaults = { tasks: {}, projects: [], notes: [], postponed: [], trash: [], spreadsheets: [], recurring: [], theme: 'light', soundMuted: false };
   const saved = await window.hiwayAPI.getData();
-  mobileState.data = Object.assign({ tasks: {}, projects: [], notes: [], postponed: [], trash: [], spreadsheets: [], theme: 'light' }, saved);
+  mobileState.data = Object.assign(defaults, saved);
+  if (!Array.isArray(mobileState.data.recurring)) mobileState.data.recurring = [];
+  if (typeof mobileState.data.soundMuted !== 'boolean') mobileState.data.soundMuted = false;
   autoRollover();
+  syncRecurringInstances();
+  checkRecurringReminders();
   initTheme();
   initAuth();
   bindGlobalHaptics();
+  initAmbientSounds();
+  initSettingsPopout();
   document.getElementById('flipout').addEventListener('click', e => {
     if (e.target === document.getElementById('flipout') || e.target.classList.contains('flipout-backdrop')) closeFlipOut();
   });
