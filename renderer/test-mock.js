@@ -7,6 +7,10 @@ if (rawData && (typeof rawData.tasks !== 'undefined' || typeof rawData.projects 
   rawData = { _legacy: rawData };
 }
 
+if (Object.keys(rawUsers).length === 0) {
+  rawUsers.testuser = { password: 'testpass' };
+}
+
 const mockStorage = {
   users: rawUsers,
   data: rawData && Object.keys(rawData).length ? rawData : {}
