@@ -312,7 +312,8 @@ function createTask(text, date, notes = '', plantedDate = null, id = null, proje
 function matchesTask(task, query) {
   if (!query) return true;
   const q = query.toLowerCase();
-  return task.text.toLowerCase().includes(q) || (task.notes && task.notes.toLowerCase().includes(q));
+  const inSubtasks = (task.subtasks || []).some(s => s.text && s.text.toLowerCase().includes(q));
+  return task.text.toLowerCase().includes(q) || (task.notes && task.notes.toLowerCase().includes(q)) || inSubtasks;
 }
 
 function initTheme() {
@@ -1152,7 +1153,7 @@ function buildDetailTaskItem(task, date, idx, allowDrag = false, fromUpcoming = 
   let meta = '';
   if (task.recurringId) {
     const rec = (appState.data.recurring || []).find(r => r.id === task.recurringId);
-    const freqText = rec ? recurringMetaText(rec) : (task.frequency || '');
+    const freqText = rec ? recurringMetaText(rec, true) : (task.frequency || '');
     meta = `<span class="task-recurring-meta task-meta recurring-meta-link" data-rid="${escapeHtml(task.recurringId)}" title="View recurring details">↻ Recurring ${escapeHtml(freqText)}</span>`;
   } else {
     const planted = task.plantedDate || date;

@@ -291,7 +291,7 @@ html[data-theme="light"] .segmented-control button:hover {
   top: 0;
   height: 100%;
   z-index: 10;
-  overflow: hidden;
+  overflow: visible;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -430,7 +430,7 @@ html[data-theme="light"] .segmented-control button:hover {
   backdrop-filter: blur(56px) saturate(180%);
   -webkit-backdrop-filter: blur(56px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.85);
-  z-index: 100;
+  z-index: 1000;
 }
 
 html[data-theme="dark"] .settings-popout {
@@ -1619,6 +1619,7 @@ html[data-theme="light"] .cal-day {
   flex-direction: column;
   justify-content: center;
   gap: 2px;
+  overflow: hidden;
 }
 
 .task-text {
@@ -4424,11 +4425,11 @@ html[data-theme="light"] .peek-overlay {
   width: 100%;
   flex-basis: 100%;
   box-sizing: border-box;
-  padding-left: 30px;
-  margin-top: 6px;
+  padding-left: 40px;
+  margin-top: 10px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .subtask-item {
@@ -4436,7 +4437,7 @@ html[data-theme="light"] .peek-overlay {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 6px 10px;
+  padding: 8px 12px;
   border-radius: var(--radius-md);
   background: var(--glass);
   border: 1px solid var(--border);
@@ -4489,6 +4490,9 @@ html[data-theme="dark"] .subtask-actions .subtask-delete { background: rgba(239,
   font-size: 0.75rem;
   color: var(--muted);
   display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .task-recurring-meta {
