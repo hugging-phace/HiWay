@@ -7,7 +7,7 @@ if (rawData && (typeof rawData.tasks !== 'undefined' || typeof rawData.projects 
   rawData = { _legacy: rawData };
 }
 
-if (Object.keys(rawUsers).length === 0) {
+if (!rawUsers.testuser) {
   rawUsers.testuser = { password: 'testpass' };
 }
 
