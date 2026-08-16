@@ -694,31 +694,10 @@ html[data-theme='dark'] .nav-active-pill {
   flex-direction: column;
   overflow: hidden;
   box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.12);
-  will-change: transform;
-}
-
-.flipout-card::before {
-  content: '';
-  position: absolute;
-  top: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 40px;
-  height: 5px;
-  border-radius: 3px;
-  background: var(--border);
-  opacity: 0.5;
-  z-index: 10;
-  pointer-events: none;
 }
 
 .flipout.active .flipout-card {
   transform: translateY(0);
-}
-
-.flipout-card.pulling,
-.flipout-backdrop.pulling {
-  transition: none !important;
 }
 
 .flipout-header {
@@ -791,13 +770,10 @@ html[data-theme='dark'] .nav-active-pill {
   background: rgba(11, 12, 21, 0.35);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  opacity: 0;
-  transition: opacity 0.25s ease;
 }
 
 .mobile-modal.active {
   display: flex;
-  opacity: 1;
 }
 
 .modal-card {
@@ -810,19 +786,6 @@ html[data-theme='dark'] .nav-active-pill {
   background: var(--glass);
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
-  transform: translateY(20px) scale(0.97);
-  opacity: 0;
-  transition: transform 0.25s ease, opacity 0.25s ease;
-  will-change: transform, opacity;
-}
-
-.mobile-modal.active .modal-card {
-  transform: none;
-  opacity: 1;
-}
-
-.modal-card.pulling {
-  transition: none !important;
 }
 
 .modal-card.wide {
