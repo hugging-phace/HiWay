@@ -304,7 +304,7 @@ html[data-theme="light"] .segmented-control button:hover {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 34px;
+  margin-bottom: 14px;
   padding-left: 8px;
 }
 
@@ -323,7 +323,7 @@ html[data-theme="light"] .segmented-control button:hover {
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   flex: 1;
   overflow-y: auto;
   min-height: 0;
@@ -340,7 +340,7 @@ html[data-theme="light"] .segmented-control button:hover {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px 16px;
+  padding: 10px 12px;
   border-radius: var(--radius-md);
   border: 1px solid transparent;
   background: transparent;
@@ -379,8 +379,14 @@ html[data-theme="light"] .segmented-control button:hover {
 .sidebar-footer {
   display: flex;
   justify-content: space-between;
-  padding-top: 16px;
+  padding-top: 8px;
   border-top: 1px solid var(--border);
+}
+
+.sidebar-footer .icon-btn {
+  width: 34px;
+  height: 34px;
+  font-size: 1rem;
 }
 
 .icon-btn {
