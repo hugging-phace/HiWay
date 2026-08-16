@@ -569,6 +569,7 @@ html[data-theme="dark"] .settings-popout::before {
   transition: clip-path 0.08s ease-out, opacity 0.1s ease;
   box-sizing: border-box;
   clip-path: circle(1500px at 42px 32px);
+  pointer-events: none;
 }
 
 .topbar > * {
@@ -577,6 +578,7 @@ html[data-theme="dark"] .settings-popout::before {
   overflow: hidden;
   white-space: nowrap;
   flex-shrink: 0;
+  pointer-events: auto;
 }
 
 .topbar > .cloud-wrap {
@@ -3944,7 +3946,7 @@ html[data-theme="light"] .peek-overlay {
   background: rgba(11, 12, 21, 0.45);
   backdrop-filter: blur(12px) brightness(0.85);
   -webkit-backdrop-filter: blur(12px) brightness(0.85);
-  pointer-events: auto;
+  pointer-events: none;
   opacity: 0;
   transition: opacity 0.4s ease, backdrop-filter 0.4s ease;
   mask-image: radial-gradient(circle at var(--spot-x, 50%) var(--spot-y, 50%), transparent 0, transparent var(--spot-radius, 80px), black calc(var(--spot-radius, 80px) + 40px));
@@ -3953,6 +3955,7 @@ html[data-theme="light"] .peek-overlay {
 
 .tour-overlay.active {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .tour-target {

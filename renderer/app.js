@@ -737,7 +737,7 @@ function switchView(view) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   const target = document.getElementById('view-' + view);
   if (target) target.classList.add('active');
-  const viewTitles = { dashboard: 'Overview', calendar: 'Calendar', projects: 'Projects', notes: 'Brainstorm', reports: 'Reports', recurring: 'Recurring', deferred: 'Deferred' };
+  const viewTitles = { dashboard: 'Overview', calendar: 'Calendar', projects: 'Projects', notes: 'Brainstorm', reports: 'Reports', spreadsheets: 'Spreadsheets', recurring: 'Recurring', deferred: 'Deferred' };
   document.getElementById('page-title').textContent = viewTitles[view] || (view.charAt(0).toUpperCase() + view.slice(1));
   if (view === 'dashboard') renderDashboard();
   if (view === 'calendar') renderCalendar();
@@ -745,6 +745,7 @@ function switchView(view) {
   if (view === 'notes') renderNotes();
   if (view === 'deferred') renderDeferred();
   if (view === 'reports') renderReports();
+  if (view === 'spreadsheets') renderSpreadsheets();
   if (view === 'recurring') renderRecurring();
   if (container) {
     requestAnimationFrame(() => {
