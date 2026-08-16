@@ -39,7 +39,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p install
-          cp dist/Onward-*.dmg dist/Onward-*.exe install/ 2>/dev/null || true
+          cp dist/Onward-*.dmg dist/Onward-*.exe dist/Onward-*.msix install/ 2>/dev/null || true
           ls -la install/
 
       - name: Upload installer artifact
@@ -76,4 +76,5 @@ jobs:
           files: |
             artifacts/**/Onward-*.dmg
             artifacts/**/Onward-*.exe
+            artifacts/**/Onward-*.msix
           token: ${{ secrets.GITHUB_TOKEN }}
