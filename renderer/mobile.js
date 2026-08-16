@@ -655,7 +655,10 @@ function initNavigation() {
     dragging = false;
     pill.classList.remove('dragging');
     const item = itemAtPoint(clientX, clientY) || activeItem;
-    if (item) setView(item.dataset.view);
+    if (item) {
+      setView(item.dataset.view);
+      playSound('click');
+    }
     activeItem = null;
   };
 
@@ -871,7 +874,7 @@ function openDeferOptions(date, idx, onComplete = null) {
   const tasks = mobileState.data.tasks[date];
   if (!tasks || !tasks[idx]) return;
   const tomorrow = getNextDay(date);
-  const modal = document.getElementById('modal');
+  const modal = document.getElementById('modal-overlay');
   const titleEl = document.getElementById('modal-title');
   const bodyEl = document.getElementById('modal-body');
   const actionsEl = document.querySelector('.modal-actions');
