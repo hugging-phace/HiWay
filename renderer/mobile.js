@@ -1505,6 +1505,8 @@ function openPlaceholder(name) {
 /* Flip-out UI */
 function openFlipOut({ title, renderBody, actions = '' }) {
   const flipout = document.getElementById('flipout');
+  const card = flipout.querySelector('.flipout-card');
+  const backdrop = flipout.querySelector('.flipout-backdrop');
   const titleEl = document.getElementById('flipout-title');
   const bodyEl = document.getElementById('flipout-body');
   const actionsEl = document.getElementById('flipout-actions');
@@ -1513,6 +1515,11 @@ function openFlipOut({ title, renderBody, actions = '' }) {
   bodyEl.innerHTML = '';
   renderBody(bodyEl);
   actionsEl.innerHTML = actions || `<button class='secondary-btn' id='flipout-close-btn' style='width:100%;'>Close</button>`;
+
+  card.classList.remove('pulling');
+  card.style.transform = '';
+  card.style.transition = '';
+  if (backdrop) backdrop.style.opacity = '';
   flipout.classList.add('active');
 
   document.getElementById('flipout-close').onclick = closeFlipOut;
@@ -1521,7 +1528,19 @@ function openFlipOut({ title, renderBody, actions = '' }) {
 }
 
 function closeFlipOut() {
-  document.getElementById('flipout').classList.remove('active');
+  const flipout = document.getElementById('flipout');
+  const card = flipout.querySelector('.flipout-card');
+  const backdrop = flipout.querySelector('.flipout-backdrop');
+  if (!flipout.classList.contains('active')) return;
+  card.classList.remove('pulling');
+  card.style.transform = 'translateY(100%)';
+  if (backdrop) backdrop.style.opacity = '0';
+  setTimeout(() => {
+    flipout.classList.remove('active');
+    card.style.transform = '';
+    card.style.transition = '';
+    if (backdrop) backdrop.style.opacity = '';
+  }, 260);
 }
 
 /* Modal */
@@ -1539,27 +1558,122 @@ function openModal(title, bodyHTML, confirmText = 'Confirm', onConfirm, onCancel
     confirm.textContent = confirmText;
     confirm.style.display = '';
   }
+
+  if (overlay) overlay.style.opacity = '';
+  if (card) {
+    card.classList.remove('pulling');
+    card.style.transform = '';
+    card.style.opacity = '';
+  }
   if (overlay) overlay.classList.add('active');
 
   // remove stale recurring action buttons
   document.querySelectorAll('.modal-actions > .recurring-delete-btn, .modal-actions > .recurring-edit-btn').forEach(b => b.remove());
 
-  const cleanup = () => {
-    if (overlay) overlay.classList.remove('active');
-    if (confirm) confirm.removeEventListener('click', onConfirmHandler);
-    if (cancel) cancel.removeEventListener('click', onCancelHandler);
-  };
-  const onConfirmHandler = () => {
-    cleanup();
-    if (typeof onConfirm === 'function') onConfirm();
-  };
-  const onCancelHandler = () => {
-    cleanup();
-    if (typeof onCancel === 'function') onCancel();
-  };
+  if (confirm) confirm.onclick = () => { closeModal(); if (typeof onConfirm === 'function') onConfirm(); };
+  if (cancel) cancel.onclick = () => { closeModal(); if (typeof onCancel === 'function') onCancel(); };
+}
 
-  if (confirm) confirm.addEventListener('click', onConfirmHandler, { once: true });
-  if (cancel) cancel.addEventListener('click', onCancelHandler, { once: true });
+function closeModal() {
+  const overlay = document.getElementById('modal-overlay');
+  const card = document.getElementById('modal-card');
+  if (!overlay || !overlay.classList.contains('active')) return;
+  if (card) {
+    card.classList.remove('pulling');
+    card.style.transform = 'translateY(40px) scale(0.96)';
+    card.style.opacity = '0';
+  }
+  overlay.style.opacity = '0';
+  setTimeout(() => {
+    overlay.classList.remove('active');
+    overlay.style.opacity = '';
+    if (card) {
+      card.style.transform = '';
+      card.style.opacity = '';
+    }
+  }, 250);
+}
+
+function makePullToDismiss(handle, card, closeFn, threshold = 120) {
+  if (!handle || !card) return;
+  let startY = 0, startX = 0, currentY = 0, dragging = false;
+  const backdrop = card.parentElement && card.parentElement.querySelector('.flipout-backdrop');
+
+  handle.addEventListener('touchstart', e => {
+    if (e.touches.length > 1) return;
+    if (e.target.closest('button, input, textarea, select, a')) return;
+    const t = e.touches[0];
+    startY = t.clientY;
+    startX = t.clientX;
+    dragging = false;
+    currentY = 0;
+  }, { passive: true });
+
+  handle.addEventListener('touchmove', e => {
+    if (startY === null) return;
+    const t = e.touches[0];
+    const dy = t.clientY - startY;
+    const dx = t.clientX - startX;
+    if (!dragging) {
+      if (dy > 10 && Math.abs(dy) > Math.abs(dx) * 1.2) {
+        dragging = true;
+        card.classList.add('pulling');
+        if (backdrop) backdrop.classList.add('pulling');
+      } else if (Math.abs(dx) > 10) {
+        startY = null;
+        return;
+      }
+    }
+    if (!dragging) return;
+    e.preventDefault();
+    currentY = Math.max(0, dy);
+    card.style.transform = `translateY(${currentY}px)`;
+    if (backdrop) backdrop.style.opacity = Math.max(0, 1 - currentY / (window.innerHeight * 0.55));
+  }, { passive: false });
+
+  function end() {
+    if (!dragging) { startY = null; return; }
+    card.classList.remove('pulling');
+    if (backdrop) backdrop.classList.remove('pulling');
+    if (currentY > threshold) {
+      card.style.transform = 'translateY(100%)';
+      if (backdrop) backdrop.style.opacity = '0';
+      setTimeout(() => {
+        closeFn();
+        card.style.transform = '';
+        card.style.transition = '';
+        if (backdrop) backdrop.style.opacity = '';
+      }, 220);
+    } else {
+      card.style.transition = 'transform 0.2s ease';
+      card.style.transform = 'translateY(0)';
+      if (backdrop) backdrop.style.opacity = '';
+      setTimeout(() => {
+        card.style.transition = '';
+        card.style.transform = '';
+      }, 200);
+    }
+    startY = null;
+    dragging = false;
+    currentY = 0;
+  }
+
+  handle.addEventListener('touchend', end);
+  handle.addEventListener('touchcancel', end);
+}
+
+function initPullToDismiss() {
+  const flipout = document.getElementById('flipout');
+  const modal = document.getElementById('modal-overlay');
+  if (flipout) {
+    const header = flipout.querySelector('.flipout-header');
+    const card = flipout.querySelector('.flipout-card');
+    if (header && card) makePullToDismiss(header, card, closeFlipOut, 120);
+  }
+  if (modal) {
+    const card = modal.querySelector('.modal-card');
+    if (card) makePullToDismiss(card, card, closeModal, 120);
+  }
 }
 
 // mobile legacy wrapper: showModal(title, body, onConfirm)
@@ -1662,6 +1776,7 @@ async function boot() {
   initAmbientSounds();
   initSettingsPopout();
   initEdgeSwipe();
+  initPullToDismiss();
   document.getElementById('flipout').addEventListener('click', e => {
     if (e.target === document.getElementById('flipout') || e.target.classList.contains('flipout-backdrop')) closeFlipOut();
   });
