@@ -3,13 +3,26 @@
 <head>
   <meta charset='UTF-8'>
   <meta name='viewport' content='width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no'>
-  <meta name='theme-color' content='#ffffff'>
+  <meta id='theme-color-meta' name='theme-color' content='#ffffff'>
+  <meta id='status-bar-meta' name='apple-mobile-web-app-status-bar-style' content='default'>
   <meta name='apple-mobile-web-app-capable' content='yes'>
-  <meta name='apple-mobile-web-app-status-bar-style' content='default'>
   <link rel='manifest' href='manifest.json'>
   <link rel='apple-touch-icon' sizes='180x180' href='assets/apple-touch-icon.png'>
   <title>Onward</title>
   <link rel='stylesheet' href='mobile.css'>
+  <script>
+    (function () {
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      let saved = null;
+      try { saved = localStorage.getItem('hiway-theme'); } catch (e) {}
+      const isDark = saved ? saved === 'dark' : prefersDark;
+      const colorMeta = document.getElementById('theme-color-meta');
+      const statusMeta = document.getElementById('status-bar-meta');
+      if (colorMeta) colorMeta.setAttribute('content', isDark ? '#0b0c15' : '#eef2f7');
+      if (statusMeta) statusMeta.setAttribute('content', isDark ? 'black-translucent' : 'default');
+      document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    })();
+  </script>
 </head>
 <body>
   <div id='app'>

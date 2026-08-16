@@ -414,19 +414,34 @@ html[data-theme='dark'] .nav-active-pill {
 
 .drag-handle {
   color: var(--muted);
-  font-size: 0.85rem;
-  letter-spacing: 1px;
-  padding: 6px 4px;
-  margin-left: -6px;
+  font-size: 1.1rem;
+  line-height: 0.35;
+  letter-spacing: 0;
+  padding: 14px 8px;
+  margin-left: -8px;
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
   cursor: grab;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 32px;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
 }
 
 .task-item.dragging {
-  opacity: 0.6;
-  box-shadow: 0 4px 14px rgba(31, 38, 135, 0.12);
+  opacity: 0.95;
+  transform: scale(1.03) translateY(-3px);
+  box-shadow: 0 14px 34px rgba(31, 38, 135, 0.18);
+  z-index: 10;
+  background: var(--glass);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
 }
 
 .task-text {
@@ -1479,4 +1494,34 @@ html[data-theme='dark'] .nav-active-pill {
   .recurring-dates-row > div {
     flex: 1;
   }
+}
+
+/* Orientation lock overlay */
+.orientation-lock {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: var(--bg);
+  color: var(--text);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px;
+  gap: 16px;
+}
+
+.orientation-lock.active {
+  display: flex;
+}
+
+.orientation-icon {
+  font-size: 4rem;
+  animation: rotateIcon 1.4s ease-in-out infinite;
+}
+
+@keyframes rotateIcon {
+  0% { transform: rotate(-90deg); }
+  100% { transform: rotate(0deg); }
 }
