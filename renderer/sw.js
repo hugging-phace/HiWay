@@ -6,8 +6,12 @@ const CORE_ASSETS = [
   '/mobile.js',
   '/recurring.js',
   '/test-mock.js',
+  '/manifest.json',
   '/assets/logo.svg',
-  '/assets/logo.png'
+  '/assets/logo.png',
+  '/assets/apple-touch-icon.png',
+  '/assets/icon-192.png',
+  '/assets/icon-512.png'
 ];
 
 self.addEventListener('install', event => {
