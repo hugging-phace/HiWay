@@ -1,19 +1,22 @@
 /* Onward Mobile */
 
+const DEFAULT_DATA = {
+  tasks: {},
+  projects: [],
+  notes: [],
+  postponed: [],
+  trash: [],
+  spreadsheets: [],
+  recurring: [],
+  theme: 'light',
+  soundMuted: false,
+  haptic: true
+};
+
 const mobileState = {
   user: null,
   users: {},
-  data: {
-    tasks: {},
-    projects: [],
-    notes: [],
-    postponed: [],
-    trash: [],
-    spreadsheets: [],
-    recurring: [],
-    theme: 'light',
-    soundMuted: false
-  },
+  data: Object.assign({}, DEFAULT_DATA),
   currentView: 'dashboard'
 };
 
@@ -159,9 +162,21 @@ function toast(message) {
   setTimeout(() => el.classList.remove('active'), 2200);
 }
 
+function updateThemeMeta() {
+  const isDark = (document.documentElement.getAttribute('data-theme') || 'light') === 'dark';
+  const themeColor = isDark ? '#0b0c15' : '#eef2f7';
+  const statusBar = isDark ? 'black-translucent' : 'default';
+  const colorMeta = document.getElementById('theme-color-meta');
+  const statusMeta = document.getElementById('status-bar-meta');
+  if (colorMeta) colorMeta.setAttribute('content', themeColor);
+  if (statusMeta) statusMeta.setAttribute('content', statusBar);
+  try { localStorage.setItem('hiway-theme', isDark ? 'dark' : 'light'); } catch (e) {}
+}
+
 function initTheme() {
   const saved = mobileState.data.theme || 'light';
   document.documentElement.setAttribute('data-theme', saved);
+  updateThemeMeta();
 }
 
 function toggleTheme() {
@@ -169,6 +184,7 @@ function toggleTheme() {
   const next = current === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', next);
   mobileState.data.theme = next;
+  updateThemeMeta();
   scheduleSave();
 }
 
@@ -269,14 +285,37 @@ function getTodayStats() {
   return { today, done, total: tasks.length };
 }
 
-function getUpcomingCount() {
+function getFutureTasks() {
   const today = dateKey(new Date());
-  let count = 0;
+  const all = [];
   Object.entries(mobileState.data.tasks).forEach(([date, tasks]) => {
     if (date <= today) return;
-    count += tasks.filter(t => !t.done).length;
+    tasks.forEach((task, idx) => {
+      if (task.done) return;
+      all.push({ date, idx, task });
+    });
   });
-  return count;
+
+  const nextByRecurring = {};
+  const nonRecurring = [];
+  all.forEach(item => {
+    if (item.task.recurringId) {
+      const rid = item.task.recurringId;
+      if (!nextByRecurring[rid] || item.date < nextByRecurring[rid].date) {
+        nextByRecurring[rid] = item;
+      }
+    } else {
+      nonRecurring.push(item);
+    }
+  });
+
+  const combined = [...Object.values(nextByRecurring), ...nonRecurring];
+  combined.sort((a, b) => a.date.localeCompare(b.date) || a.idx - b.idx);
+  return combined;
+}
+
+function getUpcomingCount() {
+  return getFutureTasks().length;
 }
 
 function getRolloverStats() {
@@ -476,6 +515,8 @@ function bindDragReorder(li, refreshFn) {
   let dragEl = null;
   let dragList = null;
   let dragRefreshFn = null;
+  let startY = null;
+  let hasMoved = false;
 
   handle.addEventListener('pointerdown', e => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -483,7 +524,10 @@ function bindDragReorder(li, refreshFn) {
     dragEl = li;
     dragList = li.parentElement;
     dragRefreshFn = refreshFn;
+    startY = e.clientY;
+    hasMoved = false;
     li.classList.add('dragging');
+    haptic('light');
     try { handle.setPointerCapture(e.pointerId); } catch (err) {}
   });
 
@@ -493,7 +537,7 @@ function bindDragReorder(li, refreshFn) {
     dragEl.classList.remove('dragging');
     const list = dragList;
     const refresh = dragRefreshFn;
-    if (list) {
+    if (list && hasMoved) {
       const items = [...list.querySelectorAll('.task-item')];
       if (items.length) {
         const sameDate = items.every(item => item.dataset.date === items[0].dataset.date);
@@ -512,12 +556,16 @@ function bindDragReorder(li, refreshFn) {
       }
     }
     dragEl = dragList = dragRefreshFn = null;
-    if (refresh) refresh();
+    startY = null;
+    if (refresh && hasMoved) refresh();
+    hasMoved = false;
   };
 
   handle.addEventListener('pointermove', e => {
     if (!dragEl || !dragList) return;
     e.preventDefault();
+    if (startY !== null && Math.abs(e.clientY - startY) > 4) hasMoved = true;
+    if (!hasMoved) return;
     const y = e.clientY;
     const siblings = [...dragList.children].filter(child => child !== dragEl);
     const after = siblings.find(child => {
@@ -574,15 +622,34 @@ function initAuth() {
       }
       mobileState.user = username;
     }
-    enterApp();
+    await enterApp();
   });
 }
 
-function enterApp() {
+async function loadUserData() {
+  const saved = await window.hiwayAPI.getData();
+  mobileState.data = Object.assign({}, DEFAULT_DATA, saved);
+  if (!Array.isArray(mobileState.data.recurring)) mobileState.data.recurring = [];
+  if (typeof mobileState.data.soundMuted !== 'boolean') mobileState.data.soundMuted = false;
+  if (typeof mobileState.data.haptic !== 'boolean') mobileState.data.haptic = true;
+  if (!mobileState.calendarMonth) mobileState.calendarMonth = dateKey(new Date()).slice(0, 7) + '-01';
+}
+
+async function enterApp() {
+  if (window.hiwayAPI && window.hiwayAPI.setCurrentUser) {
+    window.hiwayAPI.setCurrentUser(mobileState.user);
+  }
+  await loadUserData();
+  autoRollover();
+  syncRecurringInstances();
+  checkRecurringReminders();
+  initTheme();
+
   document.getElementById('auth-screen').classList.remove('active');
   document.getElementById('main-screen').classList.add('active');
   document.getElementById('current-user').textContent = '@' + mobileState.user;
   initNavigation();
+  initSettingsPopout();
   setView('dashboard');
 }
 
@@ -1016,13 +1083,7 @@ function openDayFlipOut(date) {
 }
 
 function openUpcomingFlipOut() {
-  const today = dateKey(new Date());
-  const upcoming = [];
-  Object.entries(mobileState.data.tasks).forEach(([date, tasks]) => {
-    if (date <= today) return;
-    tasks.forEach((task, idx) => { if (!task.done) upcoming.push({ date, idx, task }); });
-  });
-  upcoming.sort((a, b) => a.date.localeCompare(b.date));
+  const upcoming = getFutureTasks();
 
   openFlipOut({
     title: 'Upcoming Tasks',
@@ -1649,8 +1710,30 @@ function initOrientationLock() {
       screen.orientation.lock('portrait').catch(() => {});
     }
   }
+
+  const overlay = document.createElement('div');
+  overlay.id = 'orientation-lock';
+  overlay.className = 'orientation-lock';
+  overlay.innerHTML = `<div class='orientation-icon'>↻</div><p>Please rotate your device back to portrait.</p>`;
+  document.body.appendChild(overlay);
+
+  function update() {
+    const isLandscape = window.matchMedia && window.matchMedia('(orientation: landscape)').matches;
+    const isPhone = window.innerHeight < 500;
+    if (isLandscape && isPhone) {
+      overlay.classList.add('active');
+    } else {
+      overlay.classList.remove('active');
+      if (mobileState.currentView) updateNavPill(mobileState.currentView);
+      window.scrollTo(0, 0);
+    }
+    lock();
+  }
+
   lock();
-  window.addEventListener('orientationchange', lock);
+  window.addEventListener('orientationchange', update);
+  window.addEventListener('resize', update);
+  update();
 }
 
 async function boot() {
@@ -1659,21 +1742,9 @@ async function boot() {
     return;
   }
   mobileState.users = await window.hiwayAPI.getUsers();
-  const defaults = { tasks: {}, projects: [], notes: [], postponed: [], trash: [], spreadsheets: [], recurring: [], theme: 'light', soundMuted: false, haptic: true };
-  const saved = await window.hiwayAPI.getData();
-  mobileState.data = Object.assign(defaults, saved);
-  if (!Array.isArray(mobileState.data.recurring)) mobileState.data.recurring = [];
-  if (typeof mobileState.data.soundMuted !== 'boolean') mobileState.data.soundMuted = false;
-  if (typeof mobileState.data.haptic !== 'boolean') mobileState.data.haptic = true;
-  if (!mobileState.calendarMonth) mobileState.calendarMonth = dateKey(new Date()).slice(0, 7) + '-01';
-  autoRollover();
-  syncRecurringInstances();
-  checkRecurringReminders();
-  initTheme();
   initAuth();
   bindGlobalHaptics();
   initAmbientSounds();
-  initSettingsPopout();
   initEdgeSwipe();
   initOrientationLock();
   document.getElementById('flipout').addEventListener('click', e => {
