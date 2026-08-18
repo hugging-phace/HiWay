@@ -1,7 +1,7 @@
 {
   "name": "hiway",
-  "version": "1.0.49",
-  "description": "Onward - futuristic task and productivity manager for Mac and Windows",
+  "version": "1.0.50",
+  "description": "Onward - a futuristic task and productivity manager.",
   "main": "main.js",
   "author": "hugging-phace",
   "scripts": {
@@ -39,6 +39,7 @@
     },
     "appx": {
       "displayName": "Onward: Task Manager",
+      "description": "Plan, track, and complete tasks with a clean, modern calendar, recurring tasks, projects, notes, spreadsheets, and reports.",
       "identityName": "aramoon.OnwardTaskManager",
       "applicationId": "Onward",
       "publisher": "CN=0B9E00D9-5265-4D28-955C-12EA771F1F35",
