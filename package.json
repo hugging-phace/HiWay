@@ -39,7 +39,6 @@
     },
     "appx": {
       "displayName": "Onward: Task Manager",
-      "description": "Plan, track, and complete tasks with a clean, modern calendar, recurring tasks, projects, notes, spreadsheets, and reports.",
       "identityName": "aramoon.OnwardTaskManager",
       "applicationId": "Onward",
       "publisher": "CN=0B9E00D9-5265-4D28-955C-12EA771F1F35",
