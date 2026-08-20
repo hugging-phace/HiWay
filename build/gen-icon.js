@@ -2,21 +2,31 @@ const { app, BrowserWindow } = require('electron');
 const fs = require('fs');
 const path = require('path');
 
-const SIZE = 1024;
+const ROOT = __dirname;
 
-async function capture(name) {
-  const html = path.join(__dirname, name === 'symbol' ? 'gen-symbol.html' : 'gen-icon.html');
-  const out = path.join(__dirname, name === 'symbol' ? 'icon.icon/Assets/waypoint.png' : 'icon.png');
-  const transparent = true;
+const APPX = {
+  'LargeTile.png': [310, 310],
+  'SmallTile.png': [71, 71],
+  'SplashScreen.png': [620, 300],
+  'Square150x150Logo.png': [150, 150],
+  'Square44x44Logo.png': [44, 44],
+  'StoreLogo.png': [50, 50],
+  'Wide310x150Logo.png': [310, 150]
+};
+
+async function capture(out, html, width, height, transparent = false, resizeTo = null) {
+  const bg = transparent ? '#00000000' : '#1a0b2e';
+  const captureWidth = resizeTo ? resizeTo[0] * 2 : width;
+  const captureHeight = resizeTo ? resizeTo[1] * 2 : height;
 
   const win = new BrowserWindow({
-    width: SIZE,
-    height: SIZE,
+    width: captureWidth,
+    height: captureHeight,
     show: false,
     frame: false,
     resizable: false,
-    transparent: transparent,
-    backgroundColor: '#00000000',
+    transparent,
+    backgroundColor: bg,
     webPreferences: {
       offscreen: true,
       nodeIntegration: false,
@@ -26,27 +36,40 @@ async function capture(name) {
 
   await win.loadFile(html);
 
-  // force the content area to the desired size; offscreen windows are not limited by the display
   win.setMaximumSize(0, 0);
   win.setMinimumSize(1, 1);
-  win.setContentSize(SIZE, SIZE);
-  win.setSize(SIZE, SIZE);
+  win.setContentSize(captureWidth, captureHeight);
 
-  // give Chromium a moment to render the offscreen frame
   await new Promise(resolve => setTimeout(resolve, 400));
 
-  const image = await win.capturePage();
-  const png = image.toPNG();
-  if (png.length === 0) throw new Error(`capturePage returned empty for ${name}`);
-  fs.writeFileSync(out, png);
-  console.log('wrote', out, image.getSize().width, 'x', image.getSize().height);
+  let image = await win.capturePage();
   win.close();
+
+  if (resizeTo) {
+    image = image.resize({ width: resizeTo[0], height: resizeTo[1], quality: 'best' });
+  }
+
+  const png = image.toPNG();
+  if (png.length === 0) throw new Error(`capturePage returned empty for ${out}`);
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  fs.writeFileSync(out, png);
+  const size = image.getSize();
+  console.log('wrote', out, size.width, 'x', size.height);
 }
 
 app.whenReady().then(async () => {
   try {
-    await capture('icon');
-    await capture('symbol');
+    const iconHtml = path.join(ROOT, 'gen-icon.html');
+    const symbolHtml = path.join(ROOT, 'gen-symbol.html');
+
+    await capture(path.join(ROOT, 'icon.png'), iconHtml, 1024, 1024, false);
+
+    for (const [name, [w, h]] of Object.entries(APPX)) {
+      await capture(path.join(ROOT, 'appx', name), iconHtml, w, h, false, [w, h]);
+    }
+
+    await capture(path.join(ROOT, 'icon.icon', 'Assets', 'waypoint.png'), symbolHtml, 1024, 1024, true);
+
     app.quit();
   } catch (e) {
     console.error(e);
