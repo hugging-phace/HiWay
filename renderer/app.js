@@ -942,6 +942,8 @@ function initDashboard() {
     }
   });
   document.getElementById('detail-close').addEventListener('click', closeDashboardDetail);
+  const shareBtn = document.getElementById('detail-share-btn');
+  if (shareBtn) shareBtn.addEventListener('click', () => shareDay(shareBtn.dataset.date || appState.selectedDate));
   const detail = document.getElementById('dashboard-detail');
   detail.addEventListener('click', e => { if (e.target === detail) closeDashboardDetail(); });
   document.addEventListener('keydown', e => {
@@ -1221,6 +1223,7 @@ function renderDashboardDetail(type, date = null) {
   const subtitleEl = document.getElementById('detail-subtitle');
   const bodyEl = document.getElementById('detail-body');
   const addEl = document.getElementById('detail-add');
+  const shareBtn = document.getElementById('detail-share-btn');
   bodyEl.innerHTML = '';
   addEl.innerHTML = '';
   valueEl.className = 'detail-value';
@@ -1438,6 +1441,12 @@ function renderDashboardDetail(type, date = null) {
       refreshDashboardDetail();
       input.value = '';
     });
+  }
+
+  if (shareBtn) {
+    const shareDate = type === 'today' ? today : (type === 'day' ? date : '');
+    shareBtn.style.display = (type === 'today' || type === 'day') ? 'inline-flex' : 'none';
+    shareBtn.dataset.date = shareDate || '';
   }
 }
 
@@ -2958,6 +2967,7 @@ function openTaskNotes(date, idx, fromComplete = false) {
   const notesText = document.getElementById('notes-text');
 
   notesText.value = task.notes || '';
+  document.getElementById('notes-task-text').textContent = task.text;
   if (fromComplete) {
     title.textContent = task.notes ? 'Notes already added' : 'Add additional notes?';
     saveBtn.textContent = task.notes ? 'Update notes' : 'Add notes';
@@ -3007,17 +3017,26 @@ function fallbackCopy(textarea) {
   document.execCommand('copy');
 }
 
-function shareDay() {
-  const tasks = appState.data.tasks[appState.selectedDate] || [];
-  const d = new Date(appState.selectedDate + 'T00:00:00');
+function shareDay(forDate = null) {
+  const dateKeyValue = forDate || appState.selectedDate;
+  const tasks = appState.data.tasks[dateKeyValue] || [];
+  const d = new Date(dateKeyValue + 'T00:00:00');
   const dateLabel = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   if (tasks.length === 0) {
     openModal(`Share ${dateLabel}`, '<p style="color:var(--muted)">No tasks on this day to share.</p>', 'Close', () => {});
     return;
   }
-  const lines = tasks.map(t => `${t.done ? '- [x]' : '- [ ]'} ${t.text}${t.notes ? ' (' + t.notes + ')' : ''}`);
-  const text = `Some things on my to-do list for ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}:\n${lines.join('\n')}`;
-  const body = `<textarea id="share-text" class="share-text" readonly>${escapeHtml(text)}</textarea>`;
+
+  const buildText = (includeCompleted) => {
+    const filtered = tasks.filter(t => includeCompleted || !t.done);
+    const lines = filtered.map(t => `${t.done ? '- [x]' : '- [ ]'} ${t.text}${t.notes ? ' (' + t.notes + ')' : ''}`);
+    return `Some things on my to-do list for ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}:\n${lines.join('\n')}`;
+  };
+
+  const body = `
+    <label class="share-option"><input type="checkbox" id="share-include-completed"> Include completed tasks</label>
+    <textarea id="share-text" class="share-text" readonly></textarea>
+  `;
   openModal(`Share ${dateLabel}`, body, 'Copy to clipboard', () => {
     const ta = document.getElementById('share-text');
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -3026,6 +3045,12 @@ function shareDay() {
       fallbackCopy(ta);
     }
   });
+
+  const cb = document.getElementById('share-include-completed');
+  const ta = document.getElementById('share-text');
+  const update = () => { ta.value = buildText(cb.checked); };
+  cb.addEventListener('change', update);
+  update();
 }
 
 /* Reports */

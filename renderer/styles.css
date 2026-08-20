@@ -568,7 +568,7 @@ html[data-theme="dark"] .settings-popout::before {
   -webkit-backdrop-filter: blur(48px) saturate(180%);
   transition: clip-path 0.08s ease-out, opacity 0.1s ease;
   box-sizing: border-box;
-  clip-path: circle(1500px at 42px 32px);
+  clip-path: circle(farthest-corner at 42px 32px);
   pointer-events: none;
 }
 
@@ -613,10 +613,15 @@ html[data-theme="dark"] .settings-popout::before {
 }
 
 .user-pill {
+  min-width: 0;
+  max-width: 220px;
   padding: 8px 16px;
   border-radius: var(--radius-lg);
   font-weight: 600;
   font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
 }
 
 .win-controls {
@@ -1023,6 +1028,7 @@ html[data-theme="light"] .dashboard-detail {
   transform-style: preserve-3d;
   transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
   box-shadow: var(--shadow-lg);
+  overflow: hidden;
 }
 
 .dashboard-detail.open .detail-card {
@@ -1132,6 +1138,7 @@ html[data-theme="light"] .dashboard-detail {
 }
 
 .detail-add {
+  flex-shrink: 0;
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid var(--border);
@@ -3341,6 +3348,15 @@ html[data-theme="light"] .notes-overlay {
   margin: 0;
 }
 
+.notes-task-text {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.35;
+  word-break: break-word;
+  margin: 0 0 6px;
+}
+
 .notes-actions {
   display: flex;
   gap: 10px;
@@ -3360,6 +3376,22 @@ html[data-theme="light"] .notes-overlay {
   line-height: 1.5;
   resize: vertical;
   margin: 10px 0;
+}
+
+.share-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 0.9rem;
+  cursor: pointer;
+  margin-bottom: 6px;
+}
+
+.share-option input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
 }
 
 /* Rolled-over task meta */
