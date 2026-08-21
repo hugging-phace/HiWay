@@ -168,3 +168,11 @@ ipcMain.handle('api:setTitleBarOverlay', (event, options) => {
   } catch (e) {}
   return true;
 });
+
+ipcMain.handle('api:focusFix', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return true;
+  if (process.platform !== 'darwin') win.blur();
+  win.focus();
+  return true;
+});
