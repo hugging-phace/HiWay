@@ -1682,7 +1682,7 @@ function initCalendar() {
   document.getElementById('new-task-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') addTaskForSelectedDate();
   });
-  document.getElementById('share-day-btn').addEventListener('click', shareDay);
+  document.getElementById('share-day-btn').addEventListener('click', () => shareDay());
 
   const searchInput = document.getElementById('cal-search');
   searchInput.addEventListener('input', e => {
@@ -3412,7 +3412,7 @@ function getSheetCellValue(sheet, r, c, computing) {
     computing.delete(key);
     return val;
   }
-  const n = parseFloat(raw);
+  const n = Number(raw);
   return isNaN(n) ? raw : n;
 }
 
@@ -4188,9 +4188,26 @@ function initAmbientSounds() {
   }, false);
 }
 
+function initNativeDialogFocusFix() {
+  if (window._nativeDialogPatched) return;
+  window._nativeDialogPatched = true;
+  const nativeConfirm = window.confirm;
+  const nativeAlert = window.alert;
+  window.confirm = function (...args) {
+    const result = nativeConfirm.apply(this, args);
+    if (window.hiwayAPI && window.hiwayAPI.focusFix) window.hiwayAPI.focusFix().catch(() => {});
+    return result;
+  };
+  window.alert = function (...args) {
+    nativeAlert.apply(this, args);
+    if (window.hiwayAPI && window.hiwayAPI.focusFix) window.hiwayAPI.focusFix().catch(() => {});
+  };
+}
+
 function initMain() {
   if (mainInitialized) return;
   mainInitialized = true;
+  initNativeDialogFocusFix();
   initNavigation();
   initSettings();
   initTopbarScroll();

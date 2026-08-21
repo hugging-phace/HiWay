@@ -1581,9 +1581,9 @@ html[data-theme="light"] .cal-day {
 }
 
 .task-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  flex-wrap: wrap;
   gap: 12px;
   padding: 14px 16px;
   border-radius: 20px;
@@ -1658,8 +1658,6 @@ html[data-theme="light"] .cal-day {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
-  position: sticky;
-  right: 0;
   background: var(--glass);
   backdrop-filter: blur(16px) saturate(140%);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
@@ -1667,7 +1665,6 @@ html[data-theme="light"] .cal-day {
   border-radius: var(--radius-md);
   padding: 4px 10px 4px 6px;
   opacity: 1;
-  z-index: 2;
 }
 
 .action-btn {
@@ -3734,7 +3731,7 @@ html[data-theme="light"] .spreadsheet-detail {
   background: transparent;
   color: var(--text);
   padding: 4px 6px;
-  text-align: right;
+  text-align: left;
   font: inherit;
   outline: none;
 }
@@ -4464,10 +4461,9 @@ html[data-theme="light"] .peek-overlay {
 
 .task-subtasks {
   width: 100%;
-  flex-basis: 100%;
+  grid-column: 1 / -1;
   box-sizing: border-box;
   padding-left: 40px;
-  margin-top: 10px;
   display: flex;
   flex-direction: column;
   gap: 6px;
