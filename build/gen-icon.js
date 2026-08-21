@@ -5,13 +5,13 @@ const path = require('path');
 const ROOT = __dirname;
 
 const APPX = {
-  'LargeTile.png': [310, 310],
-  'SmallTile.png': [71, 71],
-  'SplashScreen.png': [620, 300],
-  'Square150x150Logo.png': [150, 150],
-  'Square44x44Logo.png': [44, 44],
-  'StoreLogo.png': [50, 50],
-  'Wide310x150Logo.png': [310, 150]
+  'LargeTile.png': [310, 310, 'gen-icon.html'],
+  'SmallTile.png': [71, 71, 'gen-icon.html'],
+  'SplashScreen.png': [620, 300, 'gen-icon-wide.html'],
+  'Square150x150Logo.png': [150, 150, 'gen-icon.html'],
+  'Square44x44Logo.png': [44, 44, 'gen-icon.html'],
+  'StoreLogo.png': [50, 50, 'gen-icon.html'],
+  'Wide310x150Logo.png': [310, 150, 'gen-icon-wide.html']
 };
 
 async function capture(out, html, width, height, transparent = false, resizeTo = null) {
@@ -59,13 +59,12 @@ async function capture(out, html, width, height, transparent = false, resizeTo =
 
 app.whenReady().then(async () => {
   try {
-    const iconHtml = path.join(ROOT, 'gen-icon.html');
     const symbolHtml = path.join(ROOT, 'gen-symbol.html');
 
-    await capture(path.join(ROOT, 'icon.png'), iconHtml, 1024, 1024, false);
+    await capture(path.join(ROOT, 'icon.png'), path.join(ROOT, 'gen-icon.html'), 1024, 1024, false);
 
-    for (const [name, [w, h]] of Object.entries(APPX)) {
-      await capture(path.join(ROOT, 'appx', name), iconHtml, w, h, false, [w, h]);
+    for (const [name, [w, h, html]] of Object.entries(APPX)) {
+      await capture(path.join(ROOT, 'appx', name), path.join(ROOT, html), w, h, false, [w, h]);
     }
 
     await capture(path.join(ROOT, 'icon.icon', 'Assets', 'waypoint.png'), symbolHtml, 1024, 1024, true);
