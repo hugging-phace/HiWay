@@ -3166,10 +3166,25 @@ function initTaskTextOverlay() {
   });
   overlay.addEventListener('click', e => { if (e.target === overlay) closeTaskTextOverlay(); });
   document.addEventListener('keydown', e => {
-    if (e.key !== 'Escape' || !overlay.classList.contains('open')) return;
+    if (!overlay.classList.contains('open')) return;
     if (document.getElementById('notes-overlay')?.classList.contains('open')) return;
     if (document.getElementById('modal-overlay')?.classList.contains('active')) return;
-    closeTaskTextOverlay();
+    if (e.key === 'Escape') {
+      closeTaskTextOverlay();
+      return;
+    }
+    if (e.key === 'ArrowLeft' && taskTextTarget && taskTextTarget.idx > 0) {
+      taskTextTarget.idx--;
+      renderTaskTextOverlay();
+      return;
+    }
+    if (e.key === 'ArrowRight' && taskTextTarget) {
+      const tasks = appState.data.tasks[taskTextTarget.date] || [];
+      if (taskTextTarget.idx < tasks.length - 1) {
+        taskTextTarget.idx++;
+        renderTaskTextOverlay();
+      }
+    }
   });
 }
 
