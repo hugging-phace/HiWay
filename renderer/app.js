@@ -1768,10 +1768,10 @@ function renderWeek(body, query = '') {
   }
 }
 
-function buildDayRing(tasks, size = 36) {
+function buildDayRing(tasks, size = 40) {
   const maxSlots = 8;
   const stroke = 3;
-  const radius = (size - stroke) / 2 - 5;
+  const radius = (size - stroke) / 2 - 1;
   const cx = size / 2;
   const cy = size / 2;
   const circumference = 2 * Math.PI * radius;
@@ -1798,7 +1798,7 @@ function buildDayRing(tasks, size = 36) {
     const color = t.done ? 'var(--success)' : 'var(--accent)';
     const startAngle = (i * slotAngle - arcAngle / 2 + 360) % 360;
     const offset = -(circumference * ((270 + startAngle) % 360) / 360);
-    arcs += `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${arcLen.toFixed(2)} ${gap.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}" transform="rotate(-90 ${cx} ${cy})" />`;
+    arcs += `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="butt" stroke-dasharray="${arcLen.toFixed(2)} ${gap.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}" transform="rotate(-90 ${cx} ${cy})" />`;
   }
 
   return `<svg viewBox="0 0 ${size} ${size}" class="day-ring-svg">${track}${arcs}</svg>`;
@@ -1822,16 +1822,15 @@ function createDayCell(date, otherMonth, isWeek = false, isDay = false, query = 
   if (key === appState.selectedDate) cell.classList.add('selected');
   if (hasMatch) cell.classList.add('search-match');
   if (query && !hasMatch) cell.classList.add('search-dim');
-  const ringSize = isDay ? 64 : 36;
   if (isDay) {
     cell.style.maxWidth = '160px';
     cell.style.margin = '0 auto';
   }
 
+  const ringSize = isDay ? 64 : 40;
+
   const marker = document.createElement('div');
   marker.className = 'day-marker';
-  marker.style.width = ringSize + 'px';
-  marker.style.height = ringSize + 'px';
 
   const ring = document.createElement('div');
   ring.className = 'day-ring';
