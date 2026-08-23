@@ -1064,8 +1064,9 @@ function bindTaskActionButtons(li, task, date, idx) {
     });
   }
   const textEl = li.querySelector('.task-text');
-  if (textEl && li.closest('#task-list')) {
+  if (textEl) {
     textEl.addEventListener('click', (e) => {
+      if (!li.closest('#task-list')) return;
       e.stopPropagation();
       openTaskTextOverlay(task);
     });
