@@ -1113,6 +1113,9 @@ function bindDragReorder(li) {
       document.body.style.cursor = '';
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
+      const suppressClick = (e) => { e.stopPropagation(); };
+      document.addEventListener('click', suppressClick, { capture: true, once: true });
+      setTimeout(() => document.removeEventListener('click', suppressClick, true), 80);
       const container = li.parentElement;
       const tasks = appState.data.tasks[srcDate];
       if (!container || !tasks) return;
