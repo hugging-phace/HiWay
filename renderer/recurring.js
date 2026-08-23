@@ -13,6 +13,14 @@ function getRecurringDateRange() {
   return { start: dateKey(start), end: dateKey(end) };
 }
 
+function daysInMonth(year, month) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+function monthlyTargetDay(startDay, year, month) {
+  return Math.min(startDay, daysInMonth(year, month));
+}
+
 function recurringMatchesDate(rec, key) {
   if (!rec.startDate) return false;
   if (key < rec.startDate) return false;
@@ -33,14 +41,14 @@ function recurringMatchesDate(rec, key) {
     return diff >= 0;
   }
   if (rec.cycle === 'weekly') {
-    const diff = Math.round((d - start) / (1000 * 60 * 60 * 24));
-    return diff >= 0 && diff % 7 === 0;
+    return d.getDay() === start.getDay();
   }
   if (rec.cycle === 'monthly') {
-    return d.getDate() === start.getDate() && (d.getFullYear() > start.getFullYear() || (d.getFullYear() === start.getFullYear() && d.getMonth() >= start.getMonth()));
+    return d.getDate() === monthlyTargetDay(start.getDate(), d.getFullYear(), d.getMonth());
   }
   if (rec.cycle === 'yearly') {
-    return d.getMonth() === start.getMonth() && d.getDate() === start.getDate() && d.getFullYear() >= start.getFullYear();
+    const target = monthlyTargetDay(start.getDate(), d.getFullYear(), d.getMonth());
+    return d.getMonth() === start.getMonth() && d.getDate() === target && d.getFullYear() >= start.getFullYear();
   }
   return false;
 }
@@ -78,7 +86,10 @@ function recurringMetaText(rec, short = false) {
   const weekdays = short ? WEEKDAY_SHORTS : WEEKDAY_TITLES;
   if (rec.cycle === 'daily') return 'every day';
   if (rec.cycle === 'weekly' && start) return `every ${weekdays[start.getDay()]}`;
-  if (rec.cycle === 'monthly' && start) return `monthly on the ${start.getDate()}${ord(start.getDate())}`;
+  if (rec.cycle === 'monthly' && start) {
+    if (start.getDate() > 28) return `monthly on the ${start.getDate()}${ord(start.getDate())} or last day of month`;
+    return `monthly on the ${start.getDate()}${ord(start.getDate())}`;
+  }
   if (rec.cycle === 'yearly' && start) return short ? `yearly ${monthName(start)} ${start.getDate()}` : `yearly on ${monthName(start)} ${start.getDate()}`;
   if (rec.cycle === 'custom') {
     if (rec.customWeekdays && rec.customWeekdays.length) {
