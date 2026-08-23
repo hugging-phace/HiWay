@@ -1612,10 +1612,9 @@ html[data-theme="light"] .cal-day {
 
 .task-item {
   display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
+  align-items: center;
   gap: 12px;
-  padding: 0 16px;
+  padding: 12px 16px;
   border-radius: var(--radius-md);
   background: var(--glass);
   border: 1px solid var(--border);
@@ -1623,8 +1622,7 @@ html[data-theme="light"] .cal-day {
   transition: background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   position: relative;
   box-shadow: 0 1px 4px rgba(31, 38, 135, 0.04);
-  height: 56px;
-  overflow: hidden;
+  min-height: 56px;
   box-sizing: border-box;
   width: 100%;
 }
@@ -1667,41 +1665,37 @@ html[data-theme="light"] .cal-day {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  align-self: stretch;
   gap: 2px;
   overflow: hidden;
 }
 
 .task-item > .drag-handle {
   flex: 0 0 auto;
-  align-self: center;
 }
 
 .task-item > .task-actions,
 .task-item > .completed-actions {
   flex: 0 0 auto;
   margin-left: auto;
-  align-self: center;
 }
 
 .task-item > .task-subtasks {
-  flex: 1 1 100%;
+  flex-basis: 100%;
   width: 100%;
+  margin-top: 4px;
 }
 
 @container (max-width: 480px) {
   .task-item {
     gap: 8px;
-    padding: 0 12px;
-    height: 52px;
+    padding: 10px 12px;
   }
   .task-item .task-main {
     min-width: 0;
   }
   .task-item .task-actions,
   .task-item .completed-actions {
-    gap: 6px;
-    padding: 4px 6px;
+    gap: 4px;
   }
   .task-item .task-actions .notes-btn {
     font-size: 0;
@@ -1720,8 +1714,8 @@ html[data-theme="light"] .cal-day {
 
 @container (max-width: 360px) {
   .task-item {
-    padding: 0 10px;
-    height: 48px;
+    padding: 8px 10px;
+    gap: 6px;
   }
   .task-item > .drag-handle {
     width: 20px;
@@ -1744,8 +1738,7 @@ html[data-theme="light"] .cal-day {
   }
   .task-item .task-actions,
   .task-item .completed-actions {
-    gap: 4px;
-    padding: 3px 5px;
+    gap: 3px;
   }
 }
 
@@ -1769,18 +1762,8 @@ html[data-theme="light"] .cal-day {
 .completed-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
-  align-self: center;
-  background: var(--glass);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 4px 10px 4px 6px;
-  opacity: 1;
-  height: 42px;
-  box-sizing: border-box;
 }
 
 .action-btn {
