@@ -1063,6 +1063,13 @@ function bindTaskActionButtons(li, task, date, idx) {
       if (rec) openRecurringDetails(rec);
     });
   }
+  const textEl = li.querySelector('.task-text');
+  if (textEl && li.closest('#task-list')) {
+    textEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openTaskTextOverlay(task);
+    });
+  }
 }
 
 function bindDragReorder(li) {
@@ -3002,6 +3009,38 @@ function closeNotesOverlay() {
   notesTarget = null;
 }
 
+function closeTaskTextOverlay() {
+  document.getElementById('task-text-overlay')?.classList.remove('open');
+}
+
+function openTaskTextOverlay(task) {
+  if (document.getElementById('task-text-overlay')?.classList.contains('open')) {
+    closeTaskTextOverlay();
+  }
+  const body = document.getElementById('task-text-body');
+  const meta = document.getElementById('task-text-meta');
+  if (!body) return;
+  body.textContent = task.text || '';
+
+  let metaText = '';
+  if (task.plantedDate) metaText = `Planted ${formatShortDate(task.plantedDate)}`;
+  if (task.deferredFrom) metaText = metaText ? `${metaText} · Deferred from ${formatShortDate(task.deferredFrom)}` : `Deferred from ${formatShortDate(task.deferredFrom)}`;
+  if (task.recurringId) metaText = metaText ? `${metaText} · Recurring` : 'Recurring';
+  if (meta) meta.textContent = metaText;
+
+  document.getElementById('task-text-overlay').classList.add('open');
+  playSound('open');
+}
+
+function initTaskTextOverlay() {
+  const overlay = document.getElementById('task-text-overlay');
+  const closeBtn = document.getElementById('task-text-close');
+  if (!overlay) return;
+  if (closeBtn) closeBtn.addEventListener('click', closeTaskTextOverlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeTaskTextOverlay(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && overlay.classList.contains('open')) closeTaskTextOverlay(); });
+}
+
 /* Share today's list */
 function fallbackCopy(textarea) {
   textarea.select();
@@ -4210,6 +4249,7 @@ function initMain() {
   initDeferred();
   initDashboard();
   initNotesOverlay();
+  initTaskTextOverlay();
   initReports();
   initSpreadsheets();
   initRecurring();

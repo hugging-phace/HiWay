@@ -3459,6 +3459,69 @@ html[data-theme="light"] .notes-overlay {
   justify-content: flex-end;
 }
 
+/* Task text pop-out overlay (calendar view) */
+.task-text-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.95) rotateX(-6deg);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+  perspective: 1200px;
+}
+html[data-theme="light"] .task-text-overlay {
+  background: rgba(238, 242, 247, 0.35);
+}
+.task-text-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1) rotateX(0deg);
+}
+.task-text-card {
+  width: min(520px, 92%);
+  padding: 22px;
+  border-radius: 24px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.task-text-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.task-text-header h3 {
+  font-size: 1.2rem;
+}
+.task-text-body {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.4;
+  word-break: break-word;
+  margin: 0;
+}
+.task-text-meta {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0;
+}
+#view-calendar .task-text {
+  cursor: pointer;
+}
+#view-calendar .task-text:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
 /* Share modal preview */
 .share-text {
   width: 100%;
