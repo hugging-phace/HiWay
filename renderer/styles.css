@@ -1613,8 +1613,8 @@ html[data-theme="light"] .cal-day {
 }
 
 .task-item {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
@@ -1660,8 +1660,8 @@ html[data-theme="light"] .cal-day {
 }
 
 .task-main {
-  flex: 1 1 0%;
-  min-width: 80px;
+  grid-column: 2;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1670,18 +1670,18 @@ html[data-theme="light"] .cal-day {
 }
 
 .task-item > .drag-handle {
-  flex: 0 0 auto;
+  grid-column: 1;
 }
 
 .task-item > .task-actions,
 .task-item > .completed-actions {
-  flex: 0 0 auto;
-  margin-left: auto;
+  grid-column: 3;
+  justify-self: end;
 }
 
 .task-item > .task-subtasks {
+  grid-column: 1 / -1;
   width: 100%;
-  flex: 0 0 100%;
 }
 
 @container (max-width: 480px) {
@@ -1689,7 +1689,7 @@ html[data-theme="light"] .cal-day {
     gap: 8px;
   }
   .task-item .task-main {
-    min-width: 40px;
+    min-width: 0;
   }
   .task-item .task-actions,
   .task-item .completed-actions {
