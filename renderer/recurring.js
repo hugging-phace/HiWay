@@ -115,7 +115,6 @@ function openRecurringDetails(rec) {
       <div class="recurring-detail-row"><label>Start</label><span>${formatRecurringDateShort(rec.startDate)}</span></div>
       ${rec.endDate ? `<div class="recurring-detail-row"><label>End</label><span>${formatRecurringDateShort(rec.endDate)}</span></div>` : ''}
       ${next ? `<div class="recurring-detail-row"><label>Next up</label><span>${formatRecurringDateShort(next)}</span></div>` : ''}
-      ${(rec.subtasks || []).length ? `<div class="recurring-detail-subtasks"><label>Subtasks</label><ul>${rec.subtasks.map(s => `<li>${escapeHtml(s.text)}</li>`).join('')}</ul></div>` : ''}
       ${reminderParts.length ? `<div class="recurring-detail-row"><label>Reminders</label><span>${escapeHtml(reminderParts.join(', '))}</span></div>` : ''}
     </div>
   `;
@@ -132,12 +131,10 @@ function openRecurringDetails(rec) {
 }
 
 function createRecurringTaskInstance(rec, instanceDate) {
-  const subtasks = (rec.subtasks || []).map(s => ({ id: uuid(), text: s.text, done: false }));
   const task = createTask(rec.title, instanceDate, rec.sop || '', instanceDate, null, null, false, null, null);
   task.recurringId = rec.id;
   task.recurringInstanceDate = instanceDate;
   task.frequency = recurringMetaText(rec, true);
-  task.subtasks = subtasks;
   return task;
 }
 
@@ -173,24 +170,7 @@ function syncRecurringInstances() {
       if (!appState.data.tasks[key]) appState.data.tasks[key] = [];
       appState.data.tasks[key].push(createRecurringTaskInstance(rec, key));
     }
-    syncRecurringSubtasksToInstances(rec);
   }
-}
-
-function syncRecurringSubtasksToInstances(rec) {
-  const template = (rec.subtasks || []).map(s => s.text);
-  Object.values(appState.data.tasks || {}).forEach(list => {
-    list.forEach(t => {
-      if (t.recurringId !== rec.id) return;
-      const existing = (t.subtasks || []);
-      const filtered = existing.filter(s => template.includes(s.text));
-      const existingTexts = filtered.map(s => s.text);
-      template.forEach(text => {
-        if (!existingTexts.includes(text)) filtered.push({ id: uuid(), text, done: false });
-      });
-      t.subtasks = filtered;
-    });
-  });
 }
 
 function nextRecurringOccurrence(rec) {
@@ -259,9 +239,8 @@ function checkRecurringReminders() {
 function openRecurringEditor(rec = null) {
   playSound('open');
   const isNew = !rec;
-  const editing = rec || { id: uuid(), title: '', sop: '', cycle: 'weekly', startDate: dateKey(new Date()), endDate: '', customWeekdays: [], customDates: [], subtasks: [], reminders: { before: false, dayOf: false }, created: new Date().toISOString() };
+  const editing = rec || { id: uuid(), title: '', sop: '', cycle: 'weekly', startDate: dateKey(new Date()), endDate: '', customWeekdays: [], customDates: [], reminders: { before: false, dayOf: false }, created: new Date().toISOString() };
   const titleId = 'rec-title';
-  let subtasks = (editing.subtasks || []).map(s => ({ id: s.id || uuid(), text: s.text }));
   let customWeekdays = [...(editing.customWeekdays || [])];
   if (editing.cycle === 'custom' && editing.customDates && editing.customDates.length && !customWeekdays.length) {
     customWeekdays = [...new Set(editing.customDates.map(d => {
@@ -287,19 +266,6 @@ function openRecurringEditor(rec = null) {
     `;
   }
 
-  function subtasksHtml() {
-    return `
-      <div>
-        <label>Subtasks (appear on each occurrence)</label>
-        <div class="recurring-subtask-input">
-          <input type="text" id="rec-subtask-input" class="glass-input" placeholder="Add a subtask...">
-          <button type="button" id="rec-add-subtask" class="liquid-btn">Add</button>
-        </div>
-        <div class="recurring-subtasks-list" id="rec-subtasks-list">${subtasks.map((s, i) => `<div class="recurring-chip" data-idx="${i}">${escapeHtml(s.text)} <button type="button" class="rec-remove-subtask">×</button></div>`).join('')}</div>
-      </div>
-    `;
-  }
-
   const bodyHTML = `
     <div class="recurring-form">
       <input type="text" id="${titleId}" class="glass-input" placeholder="Recurring task title" value="${escapeHtml(editing.title)}">
@@ -309,7 +275,6 @@ function openRecurringEditor(rec = null) {
         ${cycleHtml()}
       </div>
       <div id="rec-custom-days-section"></div>
-      <div id="rec-subtasks-section"></div>
       <div class="recurring-reminders">
         <label><input type="checkbox" id="rec-remind-before" ${editing.reminders?.before ? 'checked' : ''}> Remind me the day before</label>
         <label><input type="checkbox" id="rec-remind-day" ${editing.reminders?.dayOf ? 'checked' : ''}> Remind me the day of</label>
@@ -332,8 +297,6 @@ function openRecurringEditor(rec = null) {
   function renderEditor() {
     const customSection = document.getElementById('rec-custom-days-section');
     if (customSection) customSection.innerHTML = customDaysHtml();
-    const subSection = document.getElementById('rec-subtasks-section');
-    if (subSection) subSection.innerHTML = subtasksHtml();
     bindEditor();
   }
 
@@ -343,21 +306,6 @@ function openRecurringEditor(rec = null) {
         editing.cycle = r.value;
         renderEditor();
       };
-    });
-    const addSub = document.getElementById('rec-add-subtask');
-    if (addSub) addSub.onclick = () => {
-      const input = document.getElementById('rec-subtask-input');
-      const text = input.value.trim();
-      if (!text) return;
-      subtasks.push({ id: uuid(), text });
-      input.value = '';
-      renderEditor();
-    };
-    document.querySelectorAll('#rec-subtasks-list .rec-remove-subtask').forEach((btn, i) => {
-      btn.addEventListener('click', () => {
-        subtasks.splice(i, 1);
-        renderEditor();
-      });
     });
     document.querySelectorAll('.recurring-weekday').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -384,7 +332,6 @@ function openRecurringEditor(rec = null) {
     editing.endDate = document.getElementById('rec-end-date').value || null;
     editing.customWeekdays = cycle === 'custom' ? [...customWeekdays].sort((a,b) => a - b) : [];
     editing.customDates = [];
-    editing.subtasks = subtasks.map(s => ({ id: s.id || uuid(), text: s.text }));
     editing.reminders = {
       before: document.getElementById('rec-remind-before')?.checked || false,
       dayOf: document.getElementById('rec-remind-day')?.checked || false
@@ -452,7 +399,6 @@ function renderRecurring() {
       <h4><span>↻</span> ${escapeHtml(rec.title) || 'Untitled recurring'}</h4>
       <div class="recurring-meta">${frequencyLabel(rec.cycle)}${next ? ' · next ' + formatShortDate(next) : ''}</div>
       <div class="recurring-badges">
-        ${(rec.subtasks || []).length ? `<span class="recurring-badge">${rec.subtasks.length} subtask${rec.subtasks.length === 1 ? '' : 's'}</span>` : ''}
         ${rec.reminders?.before ? '<span class="recurring-badge">Day-before reminder</span>' : ''}
         ${rec.reminders?.dayOf ? '<span class="recurring-badge">Day-of reminder</span>' : ''}
       </div>
