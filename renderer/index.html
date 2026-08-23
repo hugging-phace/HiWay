@@ -96,6 +96,12 @@
                   <span class="toggle-knob"></span>
                 </button>
               </div>
+              <div class="settings-row">
+                <span class="settings-label">Keep me logged in</span>
+                <button id="settings-keep-toggle" class="settings-toggle" data-active="false">
+                  <span class="toggle-knob"></span>
+                </button>
+              </div>
             </div>
           </div>
           <button id="logout-btn" class="logout-btn" title="Sign out"><span class="logout-icon" aria-hidden="true">⎋</span><span class="logout-label">Sign out</span></button>
@@ -378,6 +384,7 @@
         <div class="task-text-nav">
           <button id="task-text-prev" class="icon-btn" aria-label="Previous task">‹</button>
           <h3 id="task-text-title">Task</h3>
+          <span id="task-text-status" class="completed-badge" style="display:none">Completed</span>
           <button id="task-text-next" class="icon-btn" aria-label="Next task">›</button>
         </div>
         <button id="task-text-close" class="icon-btn" aria-label="Close">×</button>

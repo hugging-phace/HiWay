@@ -562,12 +562,17 @@ let settingsPopoutOpen = false;
 function updateSettingsUI() {
   const themeToggle = document.getElementById('settings-theme-toggle');
   const soundToggle = document.getElementById('settings-sound-toggle');
+  const keepToggle = document.getElementById('settings-keep-toggle');
   if (themeToggle) {
     const isDark = (document.documentElement.getAttribute('data-theme') || 'light') === 'dark';
     themeToggle.setAttribute('data-active', String(isDark));
   }
   if (soundToggle) {
     soundToggle.setAttribute('data-active', String(!isSoundMuted()));
+  }
+  if (keepToggle) {
+    const keep = appState.user ? !!appState.users[appState.user]?.keepLoggedIn : false;
+    keepToggle.setAttribute('data-active', String(keep));
   }
 }
 
@@ -577,6 +582,7 @@ function initSettings() {
   const closeBtn = document.getElementById('settings-close');
   const themeToggle = document.getElementById('settings-theme-toggle');
   const soundToggle = document.getElementById('settings-sound-toggle');
+  const keepToggle = document.getElementById('settings-keep-toggle');
   if (!toggle || !popout || toggle.dataset.inited) return;
   toggle.dataset.inited = '1';
 
@@ -614,6 +620,18 @@ function initSettings() {
       updateSettingsUI();
       scheduleSave();
       if (!isSoundMuted()) playSound('click');
+    });
+  }
+
+  if (keepToggle) {
+    keepToggle.addEventListener('click', async () => {
+      if (!appState.user) return;
+      const user = appState.users[appState.user] || {};
+      user.keepLoggedIn = !user.keepLoggedIn;
+      appState.users[appState.user] = user;
+      await window.hiwayAPI.saveUsers(appState.users);
+      updateSettingsUI();
+      playSound('click');
     });
   }
 
@@ -948,7 +966,12 @@ function initDashboard() {
   const detail = document.getElementById('dashboard-detail');
   detail.addEventListener('click', e => { if (e.target === detail) closeDashboardDetail(); });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && detail.classList.contains('open')) closeDashboardDetail();
+    if (e.key !== 'Escape' || !detail.classList.contains('open')) return;
+    if (document.getElementById('notes-overlay')?.classList.contains('open')) return;
+    if (document.getElementById('modal-overlay')?.classList.contains('active')) return;
+    if (document.getElementById('spreadsheet-detail')?.classList.contains('open')) return;
+    if (document.getElementById('peek-overlay')?.classList.contains('open')) return;
+    closeDashboardDetail();
   });
 }
 
@@ -2952,7 +2975,12 @@ function initNotesOverlay() {
   document.getElementById('notes-save').addEventListener('click', saveTaskNotes);
   document.getElementById('notes-skip')?.addEventListener('click', closeNotesOverlay);
   document.getElementById('notes-overlay').addEventListener('click', e => { if (e.target === document.getElementById('notes-overlay')) closeNotesOverlay(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('notes-overlay').classList.contains('open')) closeNotesOverlay(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.getElementById('notes-overlay').classList.contains('open')) {
+      closeNotesOverlay();
+      e.stopImmediatePropagation();
+    }
+  });
 }
 
 function openTaskNotes(date, idx, fromComplete = false) {
@@ -3056,7 +3084,14 @@ function renderTaskTextOverlay() {
   const deferBtn = document.getElementById('task-text-defer');
   const prevBtn = document.getElementById('task-text-prev');
   const nextBtn = document.getElementById('task-text-next');
+  const status = document.getElementById('task-text-status');
+  const card = document.querySelector('.task-text-card');
 
+  if (card) {
+    card.classList.toggle('completed', task.done);
+    card.classList.remove('just-completed');
+  }
+  if (status) status.style.display = task.done ? 'inline-block' : 'none';
   if (notesBtn) {
     notesBtn.textContent = task.notes ? 'Edit a note' : 'Add a note';
     notesBtn.classList.toggle('has-notes', !!task.notes);
@@ -3110,6 +3145,11 @@ function initTaskTextOverlay() {
     if (!taskTextTarget) return;
     completeTaskForDate(taskTextTarget.date, taskTextTarget.idx);
     renderTaskTextOverlay();
+    const card = document.querySelector('.task-text-card');
+    if (card) {
+      card.classList.add('just-completed');
+      setTimeout(() => card.classList.remove('just-completed'), 1200);
+    }
   });
   if (undoBtn) undoBtn.addEventListener('click', () => {
     if (!taskTextTarget) return;
@@ -3125,7 +3165,12 @@ function initTaskTextOverlay() {
     openDeleteModalForDate(taskTextTarget.date, taskTextTarget.idx, taskTextOverlayAfterRemoval);
   });
   overlay.addEventListener('click', e => { if (e.target === overlay) closeTaskTextOverlay(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && overlay.classList.contains('open')) closeTaskTextOverlay(); });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || !overlay.classList.contains('open')) return;
+    if (document.getElementById('notes-overlay')?.classList.contains('open')) return;
+    if (document.getElementById('modal-overlay')?.classList.contains('active')) return;
+    closeTaskTextOverlay();
+  });
 }
 
 /* Share today's list */
@@ -3668,7 +3713,10 @@ function initSpreadsheets() {
   const detail = document.getElementById('spreadsheet-detail');
   detail.addEventListener('click', e => { if (e.target === detail) closeSpreadsheet(); });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && detail.classList.contains('open')) closeSpreadsheet();
+    if (e.key !== 'Escape' || !detail.classList.contains('open')) return;
+    if (document.getElementById('notes-overlay')?.classList.contains('open')) return;
+    if (document.getElementById('modal-overlay')?.classList.contains('active')) return;
+    closeSpreadsheet();
   });
 }
 
@@ -4355,6 +4403,8 @@ async function boot() {
   initTheme();
   initPlatform();
   initAuth();
+  const remembered = Object.entries(appState.users).find(([u, info]) => info.keepLoggedIn);
+  if (remembered) appState.user = remembered[0];
   if (appState.user) enterApp();
 }
 
