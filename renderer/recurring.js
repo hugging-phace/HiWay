@@ -1,5 +1,5 @@
 /* Recurring tasks for Onward */
-const RECURRING_RANGE_DAYS = 120;
+const RECURRING_RANGE_DAYS = 365;
 const WEEKDAY_LABELS = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 const WEEKDAY_TITLES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const WEEKDAY_SHORTS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
