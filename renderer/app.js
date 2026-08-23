@@ -1503,10 +1503,30 @@ function getWeekDayStats() {
 
 function renderWaypointTracker() {
   const container = document.getElementById('waypoint-graph');
+  const paceEl = document.getElementById('waypoint-pace');
   const days = getWeekDayStats();
   const weekTotal = days.reduce((s, d) => s + d.total, 0);
   const weekDone = days.reduce((s, d) => s + d.done, 0);
   const pct = weekTotal ? Math.round((weekDone / weekTotal) * 100) : 0;
+
+  if (paceEl) {
+    paceEl.className = 'week-pace-badge';
+    if (weekTotal === 0) {
+      paceEl.style.display = 'none';
+    } else if (weekTotal <= 15) {
+      paceEl.textContent = 'Quiet';
+      paceEl.classList.add('week-pace-quiet');
+      paceEl.style.display = 'inline-block';
+    } else if (weekTotal <= 40) {
+      paceEl.textContent = 'Busy';
+      paceEl.classList.add('week-pace-busy');
+      paceEl.style.display = 'inline-block';
+    } else {
+      paceEl.textContent = 'Hectic';
+      paceEl.classList.add('week-pace-hectic');
+      paceEl.style.display = 'inline-block';
+    }
+  }
 
   const ringRadius = 48;
   const ringCirc = 2 * Math.PI * ringRadius;
