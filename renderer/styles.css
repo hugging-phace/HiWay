@@ -3339,7 +3339,8 @@ html[data-theme="dark"] ::-webkit-scrollbar-track {
   align-items: center;
   gap: 8px;
 }
-.task-actions .notes-btn {
+.task-actions .notes-btn,
+.task-text-actions .notes-btn {
   min-width: 32px;
   height: 32px;
   border-radius: 999px;
@@ -3358,20 +3359,22 @@ html[data-theme="dark"] ::-webkit-scrollbar-track {
   backdrop-filter: blur(12px) saturate(160%);
   -webkit-backdrop-filter: blur(12px) saturate(160%);
 }
-.task-actions .notes-btn:hover {
+.task-actions .notes-btn:hover,
+.task-text-actions .notes-btn:hover {
   transform: scale(1.05);
   color: var(--accent);
   background: rgba(99, 102, 241, 0.1);
   border-color: rgba(99, 102, 241, 0.35);
 }
-.task-actions .notes-btn.has-notes {
+.task-actions .notes-btn.has-notes,
+.task-text-actions .notes-btn.has-notes {
   color: var(--accent);
   border-color: rgba(99, 102, 241, 0.35);
 }
 .notes-overlay {
   position: fixed;
   inset: 0;
-  z-index: 160;
+  z-index: 210;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3531,12 +3534,6 @@ html[data-theme="light"] .task-text-overlay {
   gap: 8px;
   padding-top: 10px;
   border-top: 1px solid var(--border);
-}
-.task-text-actions .notes-btn {
-  min-width: auto;
-  padding: 0 12px;
-  font-size: 0.7rem;
-  height: 32px;
 }
 #view-calendar .task-text {
   cursor: pointer;

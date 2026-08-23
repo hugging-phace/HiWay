@@ -1208,14 +1208,14 @@ function undoTaskForDate(date, idx) {
   refreshDashboardDetail();
 }
 
-function openPostponeModalForDate(date, idx) {
+function openPostponeModalForDate(date, idx, callback = null) {
   appState.selectedDate = date;
-  openPostponeModal(idx);
+  openPostponeModal(idx, callback);
 }
 
-function openDeleteModalForDate(date, idx) {
+function openDeleteModalForDate(date, idx, callback = null) {
   appState.selectedDate = date;
-  openDeleteModal(idx);
+  openDeleteModal(idx, callback);
 }
 
 function addDetailTask(date, text) {
@@ -2034,7 +2034,7 @@ function openModal(title, bodyHTML, confirmText = 'Confirm', onConfirm, onCancel
   card.classList.add('tilt-card');
 }
 
-function openDeleteModal(idx) {
+function openDeleteModal(idx, callback = null) {
   const task = appState.data.tasks[appState.selectedDate][idx];
   openModal(
     'Move to trash?',
@@ -2051,11 +2051,12 @@ function openDeleteModal(idx) {
       if (appState.currentView === 'deferred') renderDeferred();
       refreshDashboardDetail();
       refreshPeek();
+      if (callback) callback();
     }
   );
 }
 
-function openPostponeModal(idx) {
+function openPostponeModal(idx, callback = null) {
   const task = appState.data.tasks[appState.selectedDate][idx];
   const tomorrow = getNextDay(appState.selectedDate);
   const bodyHTML = `
@@ -2124,6 +2125,7 @@ function openPostponeModal(idx) {
     if (appState.currentView === 'deferred') renderDeferred();
     refreshDashboardDetail();
     refreshPeek();
+    if (callback) callback();
   };
 
   const onConfirm = () => {
@@ -3004,6 +3006,7 @@ function saveTaskNotes() {
   refreshDashboardDetail();
   refreshPeek();
   closeNotesOverlay();
+  renderTaskTextOverlay();
 }
 
 function closeNotesOverlay() {
@@ -3015,6 +3018,19 @@ function closeTaskTextOverlay() {
   document.getElementById('task-text-overlay')?.classList.remove('open');
 }
 
+function taskTextOverlayAfterRemoval() {
+  if (!taskTextTarget) return;
+  const tasks = appState.data.tasks[taskTextTarget.date] || [];
+  if (tasks.length === 0) {
+    closeTaskTextOverlay();
+    return;
+  }
+  if (taskTextTarget.idx >= tasks.length) {
+    taskTextTarget.idx = tasks.length - 1;
+  }
+  renderTaskTextOverlay();
+}
+
 function renderTaskTextOverlay() {
   if (!taskTextTarget) return;
   const tasks = appState.data.tasks[taskTextTarget.date] || [];
@@ -3023,8 +3039,10 @@ function renderTaskTextOverlay() {
 
   const body = document.getElementById('task-text-body');
   const meta = document.getElementById('task-text-meta');
+  const title = document.getElementById('task-text-title');
   if (!body) return;
   body.textContent = task.text || '';
+  if (title) title.textContent = `Task ${taskTextTarget.idx + 1} / ${tasks.length}`;
 
   let metaText = '';
   if (task.plantedDate) metaText = `Planted ${formatShortDate(task.plantedDate)}`;
@@ -3086,28 +3104,25 @@ function initTaskTextOverlay() {
   });
   if (notesBtn) notesBtn.addEventListener('click', () => {
     if (!taskTextTarget) return;
-    closeTaskTextOverlay();
     openTaskNotes(taskTextTarget.date, taskTextTarget.idx);
   });
   if (doneBtn) doneBtn.addEventListener('click', () => {
     if (!taskTextTarget) return;
-    closeTaskTextOverlay();
     completeTaskForDate(taskTextTarget.date, taskTextTarget.idx);
+    renderTaskTextOverlay();
   });
   if (undoBtn) undoBtn.addEventListener('click', () => {
     if (!taskTextTarget) return;
-    closeTaskTextOverlay();
     undoTaskForDate(taskTextTarget.date, taskTextTarget.idx);
+    renderTaskTextOverlay();
   });
   if (deferBtn) deferBtn.addEventListener('click', () => {
     if (!taskTextTarget) return;
-    closeTaskTextOverlay();
-    openPostponeModalForDate(taskTextTarget.date, taskTextTarget.idx);
+    openPostponeModalForDate(taskTextTarget.date, taskTextTarget.idx, taskTextOverlayAfterRemoval);
   });
   if (deleteBtn) deleteBtn.addEventListener('click', () => {
     if (!taskTextTarget) return;
-    closeTaskTextOverlay();
-    openDeleteModalForDate(taskTextTarget.date, taskTextTarget.idx);
+    openDeleteModalForDate(taskTextTarget.date, taskTextTarget.idx, taskTextOverlayAfterRemoval);
   });
   overlay.addEventListener('click', e => { if (e.target === overlay) closeTaskTextOverlay(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && overlay.classList.contains('open')) closeTaskTextOverlay(); });
