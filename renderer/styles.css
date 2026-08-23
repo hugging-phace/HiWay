@@ -1,5 +1,5 @@
 :root {
-  --bg-light: #eef2f7;
+  --bg-light: #e6ecf4;
   --bg-dark: #0b0c15;
   --glass-light: rgba(255, 255, 255, 0.55);
   --glass-dark: rgba(20, 22, 36, 0.65);
@@ -1143,7 +1143,8 @@ html[data-theme="light"] .dashboard-detail {
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0;
+  border-top: 1px solid var(--border);
 }
 
 .detail-empty {
@@ -1159,13 +1160,9 @@ html[data-theme="light"] .dashboard-detail {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
-  margin: 8px 2px 4px;
-}
-
-.task-date-group {
-  margin: 12px 2px 6px;
+  margin: 12px 0 6px;
   padding-top: 6px;
-  border-top: 1px solid var(--border);
+  border-top: none;
 }
 
 .detail-add {
@@ -1603,13 +1600,19 @@ html[data-theme="light"] .cal-day {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
   overflow-y: auto;
   overflow-x: hidden;
   flex: 1;
   min-height: 0;
   scrollbar-gutter: stable;
   container-type: inline-size;
+  border-top: 1px solid var(--border);
+}
+
+.task-list > * + .task-item,
+.detail-body > * + .task-item {
+  border-top: 1px solid var(--border);
 }
 
 .task-item {
@@ -1617,26 +1620,25 @@ html[data-theme="light"] .cal-day {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
-  padding: 14px 16px;
-  border-radius: 20px;
-  background: var(--glass);
-  border: 1px solid var(--border);
+  padding: 14px 0;
+  border-radius: 0;
+  background: transparent;
+  border: none;
   cursor: pointer;
-  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
   position: relative;
-  box-shadow: 0 1px 4px rgba(31, 38, 135, 0.04);
+  box-shadow: none;
   min-height: 56px;
 }
 
 .task-item:hover {
   transform: translateX(4px);
-  border-color: var(--accent);
-  box-shadow: 0 4px 14px rgba(31, 38, 135, 0.08);
+  background: rgba(99, 102, 241, 0.06);
 }
 
 .task-item.done {
-  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.35), inset 0 0 18px rgba(34, 197, 94, 0.08);
-  border-color: rgba(34, 197, 94, 0.45);
+  box-shadow: inset 3px 0 0 0 rgba(34, 197, 94, 0.55);
+  background: rgba(34, 197, 94, 0.05);
 }
 
 .task-item.just-completed {
@@ -1644,14 +1646,15 @@ html[data-theme="light"] .cal-day {
 }
 
 @keyframes completeGlow {
-  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
-  40% { box-shadow: 0 0 26px 6px rgba(34, 197, 94, 0.35), 0 0 0 2px rgba(34, 197, 94, 0.55), inset 0 0 24px rgba(34, 197, 94, 0.12); }
-  100% { box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.35), inset 0 0 18px rgba(34, 197, 94, 0.08); }
+  0% { box-shadow: inset 0 0 0 0 rgba(34, 197, 94, 0); }
+  40% { box-shadow: inset 6px 0 0 0 rgba(34, 197, 94, 0.65), inset 0 0 24px rgba(34, 197, 94, 0.12); }
+  100% { box-shadow: inset 3px 0 0 0 rgba(34, 197, 94, 0.55); }
 }
 
 .task-item.drag-over {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
+  background: rgba(99, 102, 241, 0.08);
+  outline: 1px dashed rgba(99, 102, 241, 0.4);
+  outline-offset: -1px;
 }
 
 .task-item.done .task-text {
@@ -1687,6 +1690,7 @@ html[data-theme="light"] .cal-day {
 @container (max-width: 480px) {
   .task-item {
     gap: 8px;
+    padding: 14px 0;
   }
   .task-item .task-main {
     min-width: 0;
@@ -1713,7 +1717,7 @@ html[data-theme="light"] .cal-day {
 
 @container (max-width: 360px) {
   .task-item {
-    padding: 12px 10px;
+    padding: 12px 0;
   }
   .task-item > .drag-handle {
     width: 20px;
@@ -1845,9 +1849,9 @@ html[data-theme="dark"] .action-btn.delete-btn { background: rgba(239, 68, 68, 0
 
 .task-item.dragging {
   opacity: 1;
-  background: rgba(99, 102, 241, 0.06);
-  border: 1px dashed rgba(99, 102, 241, 0.45);
-  box-shadow: inset 0 0 20px rgba(99, 102, 241, 0.08);
+  background: rgba(99, 102, 241, 0.08);
+  outline: 1px dashed rgba(99, 102, 241, 0.45);
+  outline-offset: -1px;
 }
 
 .task-item.dragging > * {
