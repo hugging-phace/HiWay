@@ -1775,33 +1775,23 @@ function buildDayRing(tasks, size = 40) {
   const cx = size / 2;
   const cy = size / 2;
   const circumference = 2 * Math.PI * radius;
-  const slotAngle = 360 / maxSlots;
   const count = Math.min(tasks.length, maxSlots);
   if (count === 0) return '';
 
   const allDone = tasks.every(t => t.done);
-  const full = tasks.length >= maxSlots;
-  const activeColor = allDone ? 'var(--success)' : 'var(--accent)';
-  const track = `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="var(--accent)" stroke-width="1" opacity="0.08" transform="rotate(-90 ${cx} ${cy})" />`;
+  const color = allDone ? 'var(--success)' : 'var(--accent)';
 
-  if (full) {
-    return `<svg viewBox="0 0 ${size} ${size}" class="day-ring-svg">${track}<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="${activeColor}" stroke-width="${stroke}" transform="rotate(-90 ${cx} ${cy})" /></svg>`;
+  // Full circle for 8+ tasks
+  if (tasks.length >= maxSlots) {
+    return `<svg viewBox="0 0 ${size} ${size}" class="day-ring-svg"><circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="${color}" stroke-width="${stroke}" transform="rotate(-90 ${cx} ${cy})" /></svg>`;
   }
 
-  const arcAngle = slotAngle * 0.35;
-  const arcLen = (circumference * arcAngle) / 360;
+  // Single smooth arc that grows with the number of tasks
+  const progress = count / maxSlots;
+  const arcLen = circumference * progress;
   const gap = circumference - arcLen;
 
-  let arcs = '';
-  for (let i = 0; i < count; i++) {
-    const t = tasks[i];
-    const color = t.done ? 'var(--success)' : 'var(--accent)';
-    const startAngle = (i * slotAngle - arcAngle / 2 + 360) % 360;
-    const offset = -(circumference * ((270 + startAngle) % 360) / 360);
-    arcs += `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="butt" stroke-dasharray="${arcLen.toFixed(2)} ${gap.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}" transform="rotate(-90 ${cx} ${cy})" />`;
-  }
-
-  return `<svg viewBox="0 0 ${size} ${size}" class="day-ring-svg">${track}${arcs}</svg>`;
+  return `<svg viewBox="0 0 ${size} ${size}" class="day-ring-svg"><circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${arcLen.toFixed(2)} ${gap.toFixed(2)}" stroke-dashoffset="0" transform="rotate(-90 ${cx} ${cy})" /></svg>`;
 }
 
 function renderDay(body, query = '') {
