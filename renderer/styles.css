@@ -1889,7 +1889,7 @@ html[data-theme="dark"] .action-btn.delete-btn { background: rgba(239, 68, 68, 0
 .modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 200;
+  z-index: 250;
   display: none;
   align-items: center;
   justify-content: center;
@@ -3498,7 +3498,17 @@ html[data-theme="light"] .task-text-overlay {
   align-items: center;
   justify-content: space-between;
 }
-.task-text-header h3 {
+.task-text-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.task-text-nav h3 {
+  font-size: 1.2rem;
+}
+.task-text-nav .icon-btn {
+  width: 28px;
+  height: 28px;
   font-size: 1.2rem;
 }
 .task-text-body {
@@ -3513,6 +3523,20 @@ html[data-theme="light"] .task-text-overlay {
   font-size: 0.85rem;
   color: var(--muted);
   margin: 0;
+}
+.task-text-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.task-text-actions .notes-btn {
+  min-width: auto;
+  padding: 0 12px;
+  font-size: 0.7rem;
+  height: 32px;
 }
 #view-calendar .task-text {
   cursor: pointer;

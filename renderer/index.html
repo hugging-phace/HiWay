@@ -375,11 +375,22 @@
   <div id="task-text-overlay" class="task-text-overlay">
     <div class="task-text-card glass-card">
       <header class="task-text-header">
-        <h3 id="task-text-title">Task</h3>
+        <div class="task-text-nav">
+          <button id="task-text-prev" class="icon-btn" aria-label="Previous task">‹</button>
+          <h3 id="task-text-title">Task</h3>
+          <button id="task-text-next" class="icon-btn" aria-label="Next task">›</button>
+        </div>
         <button id="task-text-close" class="icon-btn" aria-label="Close">×</button>
       </header>
       <p id="task-text-body" class="task-text-body"></p>
       <p id="task-text-meta" class="task-text-meta"></p>
+      <div class="task-text-actions" id="task-text-actions">
+        <button id="task-text-notes" class="notes-btn" title="Add a note">Add a note</button>
+        <button id="task-text-done" class="action-btn done-btn" title="Complete" style="display:none">✓</button>
+        <button id="task-text-undo" class="action-btn undo-btn" title="Undo" style="display:none">↩</button>
+        <button id="task-text-defer" class="action-btn defer-btn" title="Defer">⧗</button>
+        <button id="task-text-delete" class="action-btn delete-btn" title="Delete">×</button>
+      </div>
     </div>
   </div>
 

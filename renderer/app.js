@@ -32,6 +32,7 @@ let lastCreatedSheetId = null;
 let dashboardDetailType = null;
 let dashboardDetailDate = null;
 let notesTarget = null;
+let taskTextTarget = null;
 let pendingRestore = null;
 let cloudPopoutOpen = false;
 let audioCtx = null;
@@ -1068,7 +1069,7 @@ function bindTaskActionButtons(li, task, date, idx) {
     textEl.addEventListener('click', (e) => {
       if (!li.closest('#task-list')) return;
       e.stopPropagation();
-      openTaskTextOverlay(task);
+      openTaskTextOverlay(date, idx);
     });
   }
 }
@@ -3014,10 +3015,12 @@ function closeTaskTextOverlay() {
   document.getElementById('task-text-overlay')?.classList.remove('open');
 }
 
-function openTaskTextOverlay(task) {
-  if (document.getElementById('task-text-overlay')?.classList.contains('open')) {
-    closeTaskTextOverlay();
-  }
+function renderTaskTextOverlay() {
+  if (!taskTextTarget) return;
+  const tasks = appState.data.tasks[taskTextTarget.date] || [];
+  const task = tasks[taskTextTarget.idx];
+  if (!task) return;
+
   const body = document.getElementById('task-text-body');
   const meta = document.getElementById('task-text-meta');
   if (!body) return;
@@ -3029,15 +3032,83 @@ function openTaskTextOverlay(task) {
   if (task.recurringId) metaText = metaText ? `${metaText} · Recurring` : 'Recurring';
   if (meta) meta.textContent = metaText;
 
+  const notesBtn = document.getElementById('task-text-notes');
+  const doneBtn = document.getElementById('task-text-done');
+  const undoBtn = document.getElementById('task-text-undo');
+  const deferBtn = document.getElementById('task-text-defer');
+  const prevBtn = document.getElementById('task-text-prev');
+  const nextBtn = document.getElementById('task-text-next');
+
+  if (notesBtn) {
+    notesBtn.textContent = task.notes ? 'Edit a note' : 'Add a note';
+    notesBtn.classList.toggle('has-notes', !!task.notes);
+  }
+  if (doneBtn) doneBtn.style.display = task.done ? 'none' : 'flex';
+  if (undoBtn) undoBtn.style.display = task.done ? 'flex' : 'none';
+  if (deferBtn) deferBtn.style.display = task.done ? 'none' : 'flex';
+  if (prevBtn) prevBtn.style.display = taskTextTarget.idx > 0 ? 'flex' : 'none';
+  if (nextBtn) nextBtn.style.display = taskTextTarget.idx < tasks.length - 1 ? 'flex' : 'none';
+}
+
+function openTaskTextOverlay(date, idx) {
+  if (document.getElementById('task-text-overlay')?.classList.contains('open')) {
+    closeTaskTextOverlay();
+  }
+  taskTextTarget = { date, idx };
   document.getElementById('task-text-overlay').classList.add('open');
   playSound('open');
+  renderTaskTextOverlay();
 }
 
 function initTaskTextOverlay() {
   const overlay = document.getElementById('task-text-overlay');
   const closeBtn = document.getElementById('task-text-close');
+  const notesBtn = document.getElementById('task-text-notes');
+  const doneBtn = document.getElementById('task-text-done');
+  const undoBtn = document.getElementById('task-text-undo');
+  const deferBtn = document.getElementById('task-text-defer');
+  const deleteBtn = document.getElementById('task-text-delete');
+  const prevBtn = document.getElementById('task-text-prev');
+  const nextBtn = document.getElementById('task-text-next');
   if (!overlay) return;
   if (closeBtn) closeBtn.addEventListener('click', closeTaskTextOverlay);
+  if (prevBtn) prevBtn.addEventListener('click', () => {
+    if (!taskTextTarget || taskTextTarget.idx <= 0) return;
+    taskTextTarget.idx--;
+    renderTaskTextOverlay();
+  });
+  if (nextBtn) nextBtn.addEventListener('click', () => {
+    if (!taskTextTarget) return;
+    const tasks = appState.data.tasks[taskTextTarget.date] || [];
+    if (taskTextTarget.idx >= tasks.length - 1) return;
+    taskTextTarget.idx++;
+    renderTaskTextOverlay();
+  });
+  if (notesBtn) notesBtn.addEventListener('click', () => {
+    if (!taskTextTarget) return;
+    closeTaskTextOverlay();
+    openTaskNotes(taskTextTarget.date, taskTextTarget.idx);
+  });
+  if (doneBtn) doneBtn.addEventListener('click', () => {
+    if (!taskTextTarget) return;
+    closeTaskTextOverlay();
+    completeTaskForDate(taskTextTarget.date, taskTextTarget.idx);
+  });
+  if (undoBtn) undoBtn.addEventListener('click', () => {
+    if (!taskTextTarget) return;
+    closeTaskTextOverlay();
+    undoTaskForDate(taskTextTarget.date, taskTextTarget.idx);
+  });
+  if (deferBtn) deferBtn.addEventListener('click', () => {
+    if (!taskTextTarget) return;
+    closeTaskTextOverlay();
+    openPostponeModalForDate(taskTextTarget.date, taskTextTarget.idx);
+  });
+  if (deleteBtn) deleteBtn.addEventListener('click', () => {
+    if (!taskTextTarget) return;
+    closeTaskTextOverlay();
+    openDeleteModalForDate(taskTextTarget.date, taskTextTarget.idx);
+  });
   overlay.addEventListener('click', e => { if (e.target === overlay) closeTaskTextOverlay(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && overlay.classList.contains('open')) closeTaskTextOverlay(); });
 }
