@@ -1609,11 +1609,12 @@ html[data-theme="light"] .cal-day {
   flex: 1;
   min-height: 0;
   scrollbar-gutter: stable;
+  container-type: inline-size;
 }
 
 .task-item {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
@@ -1659,28 +1660,85 @@ html[data-theme="light"] .cal-day {
 }
 
 .task-main {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 0%;
+  min-width: 80px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: 2px;
   overflow: hidden;
-  grid-column: 2;
 }
 
 .task-item > .drag-handle {
-  grid-column: 1;
+  flex: 0 0 auto;
 }
 
 .task-item > .task-actions,
 .task-item > .completed-actions {
-  grid-column: 3;
-  justify-self: end;
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .task-item > .task-subtasks {
-  grid-column: 1 / -1;
+  width: 100%;
+  flex: 0 0 100%;
+}
+
+@container (max-width: 480px) {
+  .task-item {
+    gap: 8px;
+  }
+  .task-item .task-main {
+    min-width: 40px;
+  }
+  .task-item .task-actions,
+  .task-item .completed-actions {
+    gap: 6px;
+    padding: 4px 6px;
+  }
+  .task-item .task-actions .notes-btn {
+    font-size: 0;
+    min-width: 32px;
+    width: 32px;
+    padding: 0;
+  }
+  .task-item .task-actions .notes-btn::before {
+    content: '\270E';
+    font-size: 0.9rem;
+  }
+  .task-item .completed-badge {
+    display: none;
+  }
+}
+
+@container (max-width: 360px) {
+  .task-item {
+    padding: 12px 10px;
+  }
+  .task-item > .drag-handle {
+    width: 20px;
+  }
+  .task-item .task-actions .action-btn,
+  .task-item .completed-actions .action-btn {
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    font-size: 0.8rem;
+  }
+  .task-item .task-actions .notes-btn {
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    font-size: 0;
+  }
+  .task-item .task-actions .notes-btn::before {
+    font-size: 0.78rem;
+  }
+  .task-item .task-actions,
+  .task-item .completed-actions {
+    gap: 4px;
+    padding: 3px 5px;
+  }
 }
 
 .task-text {
@@ -1691,6 +1749,7 @@ html[data-theme="light"] .cal-day {
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+  width: 100%;
 }
 
 .task-item.done .task-text {
@@ -1760,15 +1819,15 @@ html[data-theme="dark"] .action-btn.delete-btn { background: rgba(239, 68, 68, 0
 
 .drag-handle {
   flex-shrink: 0;
-  width: 18px;
+  width: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: grab;
   color: var(--muted);
-  opacity: 0.4;
+  opacity: 0.5;
   transition: opacity 0.15s ease, color 0.15s ease;
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   line-height: 1;
   user-select: none;
   -webkit-user-select: none;
@@ -4507,7 +4566,6 @@ html[data-theme="light"] .peek-overlay {
 
 .task-subtasks {
   width: 100%;
-  grid-column: 1 / -1;
   box-sizing: border-box;
   padding-left: 40px;
   display: flex;
