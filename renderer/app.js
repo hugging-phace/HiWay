@@ -555,6 +555,22 @@ function initNavigation() {
   });
 
   document.getElementById('logout-btn').addEventListener('click', logout);
+  updateSidebarCompact();
+  window.addEventListener('resize', updateSidebarCompact);
+}
+
+function updateSidebarCompact() {
+  const sidebar = document.querySelector('.sidebar');
+  const nav = sidebar?.querySelector('.nav');
+  if (!sidebar || !nav) return;
+  sidebar.classList.remove('nav-compact', 'nav-super-compact');
+  const natural = nav.scrollHeight;
+  const available = nav.clientHeight;
+  if (natural <= available + 1) return;
+  sidebar.classList.add('nav-compact');
+  if (nav.scrollHeight > nav.clientHeight + 1) {
+    sidebar.classList.add('nav-super-compact');
+  }
 }
 
 let settingsPopoutOpen = false;
