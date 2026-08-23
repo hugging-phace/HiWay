@@ -3051,6 +3051,74 @@ html[data-theme="dark"] ::-webkit-scrollbar-track {
   }
 }
 
+@media (max-height: 800px) {
+  .sidebar {
+    padding: 16px 12px;
+  }
+  .sidebar-brand {
+    margin-bottom: 10px;
+  }
+  .sidebar-brand .brand-orb {
+    width: 32px;
+    height: 32px;
+  }
+  .sidebar-brand span {
+    font-size: 1.2rem;
+  }
+  .nav {
+    gap: 4px;
+  }
+  .nav-item {
+    padding: 8px 12px;
+    font-size: 0.92rem;
+  }
+  .nav-icon {
+    width: 26px;
+    font-size: 1.05rem;
+  }
+  .sidebar-footer {
+    padding-top: 6px;
+  }
+  .sidebar-footer .icon-btn {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+@media (max-height: 650px) {
+  .sidebar {
+    padding: 12px 10px;
+  }
+  .sidebar-brand {
+    margin-bottom: 6px;
+  }
+  .sidebar-brand .brand-orb {
+    width: 28px;
+    height: 28px;
+  }
+  .sidebar-brand span {
+    font-size: 1.1rem;
+  }
+  .nav {
+    gap: 2px;
+  }
+  .nav-item {
+    padding: 6px 10px;
+    font-size: 0.85rem;
+  }
+  .nav-icon {
+    width: 22px;
+    font-size: 0.95rem;
+  }
+  .sidebar-footer {
+    padding-top: 4px;
+  }
+  .sidebar-footer .icon-btn {
+    width: 28px;
+    height: 28px;
+  }
+}
+
 /* Liquid glass scroll-behind hint */
 .sidebar::after, .topbar::after {
   content: '';
