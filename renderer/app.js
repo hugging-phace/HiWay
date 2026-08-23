@@ -555,22 +555,41 @@ function initNavigation() {
   });
 
   document.getElementById('logout-btn').addEventListener('click', logout);
-  updateSidebarCompact();
+  initSidebarCompact();
   window.addEventListener('resize', updateSidebarCompact);
 }
+
+let sidebarCompactUpdating = false;
+let sidebarCompactObserver = null;
 
 function updateSidebarCompact() {
   const sidebar = document.querySelector('.sidebar');
   const nav = sidebar?.querySelector('.nav');
   if (!sidebar || !nav) return;
+  sidebarCompactUpdating = true;
   sidebar.classList.remove('nav-compact', 'nav-super-compact');
   const natural = nav.scrollHeight;
   const available = nav.clientHeight;
-  if (natural <= available + 1) return;
-  sidebar.classList.add('nav-compact');
-  if (nav.scrollHeight > nav.clientHeight + 1) {
-    sidebar.classList.add('nav-super-compact');
+  if (natural > available + 1) {
+    sidebar.classList.add('nav-compact');
+    if (nav.scrollHeight > nav.clientHeight + 1) {
+      sidebar.classList.add('nav-super-compact');
+    }
   }
+  sidebarCompactUpdating = false;
+}
+
+function initSidebarCompact() {
+  const nav = document.querySelector('.nav');
+  if (!nav) return;
+  if (!sidebarCompactObserver) {
+    sidebarCompactObserver = new ResizeObserver(() => {
+      if (sidebarCompactUpdating) return;
+      updateSidebarCompact();
+    });
+    sidebarCompactObserver.observe(nav);
+  }
+  updateSidebarCompact();
 }
 
 let settingsPopoutOpen = false;
