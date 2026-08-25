@@ -1745,20 +1745,18 @@ html[data-theme="light"] .cal-day {
   }
 }
 
-.task-text {
-  font-size: 0.95rem;
-  position: relative;
-  z-index: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-  width: 100%;
-}
-
 .task-item.done .task-text {
   text-decoration: line-through;
   opacity: 0.55;
+}
+
+.follow-up-icon {
+  display: inline-block;
+  font-size: 0.65rem;
+  margin-right: 6px;
+  opacity: 0.7;
+  color: var(--text);
+  vertical-align: middle;
 }
 
 .task-actions,
@@ -1800,6 +1798,8 @@ html[data-theme="dark"] .action-btn {
 .action-btn.defer-btn { color: var(--warning); border-color: rgba(245, 158, 11, 0.28); background: rgba(245, 158, 11, 0.08); }
 .action-btn.delete-btn { color: var(--danger); border-color: rgba(239, 68, 68, 0.28); background: rgba(239, 68, 68, 0.08); }
 .action-btn.undo-btn { color: var(--text); background: var(--glass); }
+.action-btn.follow-up-btn { color: #111; background: var(--glass); }
+html[data-theme="dark"] .action-btn.follow-up-btn { color: #fff; }
 
 html[data-theme="dark"] .action-btn.done-btn { background: rgba(34, 197, 94, 0.18); }
 html[data-theme="dark"] .action-btn.defer-btn { background: rgba(245, 158, 11, 0.18); }
@@ -3650,6 +3650,46 @@ html[data-theme="light"] .task-text-card.completed {
 #view-calendar .task-text:hover {
   color: var(--accent);
   text-decoration: underline;
+}
+
+/* Quick follow-up pop-out */
+.quick-followup-popout {
+  position: fixed;
+  width: min(260px, 92vw);
+  padding: 14px;
+  border-radius: var(--radius-lg);
+  z-index: 1000;
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: var(--shadow-lg);
+  background: var(--glass);
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  border: 1px solid var(--border);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.quick-followup-popout.open {
+  display: flex;
+  opacity: 1;
+}
+html[data-theme="light"] .quick-followup-popout {
+  background: rgba(238, 242, 247, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+}
+.quick-followup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.quick-followup-header .icon-btn {
+  width: 26px;
+  height: 26px;
+  font-size: 1.1rem;
 }
 
 /* Share modal preview */

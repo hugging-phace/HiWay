@@ -33,6 +33,7 @@ let dashboardDetailType = null;
 let dashboardDetailDate = null;
 let notesTarget = null;
 let taskTextTarget = null;
+let quickFollowUpTarget = null;
 let pendingRestore = null;
 let cloudPopoutOpen = false;
 let audioCtx = null;
@@ -297,7 +298,7 @@ async function restoreBackup(file) {
   applyBackup(await readBackupFile(file));
 }
 
-function createTask(text, date, notes = '', plantedDate = null, id = null, projectId = null, done = false, completedDate = null, spreadsheetId = null) {
+function createTask(text, date, notes = '', plantedDate = null, id = null, projectId = null, done = false, completedDate = null, spreadsheetId = null, followUp = false) {
   return {
     text,
     done: !!done,
@@ -306,7 +307,8 @@ function createTask(text, date, notes = '', plantedDate = null, id = null, proje
     completedDate: completedDate || null,
     id: id || uuid(),
     projectId: projectId || null,
-    spreadsheetId: spreadsheetId || null
+    spreadsheetId: spreadsheetId || null,
+    followUp: !!followUp
   };
 }
 
@@ -1033,6 +1035,7 @@ function buildTaskActions(task, date, idx) {
   if (task.done) {
     return `
       <div class="task-actions completed-actions">
+        <button class="action-btn follow-up-btn" title="Quick follow up">⇄</button>
         <span class="completed-badge">Completed</span>
         <button class="notes-btn ${task.notes ? 'has-notes' : ''}" title="Notes">${notesLabel}</button>
         <button class="action-btn undo-btn" title="Undo">↩</button>
@@ -1068,7 +1071,9 @@ function bindTaskActionButtons(li, task, date, idx) {
     if (deferBtn) deferBtn.addEventListener('click', () => openPostponeModalForDate(date, idx));
   } else {
     const undoBtn = li.querySelector('.undo-btn');
+    const followUpBtn = li.querySelector('.follow-up-btn');
     if (undoBtn) undoBtn.addEventListener('click', () => undoTaskForDate(date, idx));
+    if (followUpBtn) followUpBtn.addEventListener('click', (e) => openQuickFollowUp(task, date, idx, e.currentTarget));
   }
   li.querySelectorAll('.subtask-complete').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -1231,10 +1236,11 @@ function buildDetailTaskItem(task, date, idx, allowDrag = false, fromUpcoming = 
     meta = `<span class="task-planted-meta task-meta">Planted ${formatShortDate(planted)}${planted !== date ? ` · now ${formatShortDate(date)}` : ''}</span>`;
   }
   const dragHandle = allowDrag ? `<span class="drag-handle" title="Drag to reorder">⋮⋮</span>` : '';
+  const followUpIcon = task.followUp ? `<span class="follow-up-icon" title="Follow up">⇄</span>` : '';
   li.innerHTML = `
     ${dragHandle}
     <div class="task-main">
-      <div class="task-text">${taskBadge(task)}${escapeHtml(task.text)}</div>
+      <div class="task-text">${followUpIcon}${taskBadge(task)}${escapeHtml(task.text)}</div>
       ${meta}
     </div>
     ${buildTaskActions(task, date, idx)}
@@ -1276,11 +1282,11 @@ function openDeleteModalForDate(date, idx, callback = null) {
   openDeleteModal(idx, callback);
 }
 
-function addDetailTask(date, text) {
+function addDetailTask(date, text, followUp = false) {
   if (!text) return;
   const key = dateKey(date);
   if (!appState.data.tasks[key]) appState.data.tasks[key] = [];
-  appState.data.tasks[key].push(createTask(text, key));
+  appState.data.tasks[key].unshift(createTask(text, key, '', key, null, null, false, null, null, followUp));
   scheduleSave();
   renderCalendar();
   renderDashboard();
@@ -1988,7 +1994,7 @@ function addTaskForSelectedDate() {
   const text = input.value.trim();
   if (!text) return;
   if (!appState.data.tasks[appState.selectedDate]) appState.data.tasks[appState.selectedDate] = [];
-  appState.data.tasks[appState.selectedDate].push(createTask(text, appState.selectedDate));
+  appState.data.tasks[appState.selectedDate].unshift(createTask(text, appState.selectedDate, '', appState.selectedDate, null, null, false, null, null, false));
   input.value = '';
   playSound('click');
   scheduleSave();
@@ -2321,7 +2327,7 @@ function restoreDeferredItem(idx, targetDate) {
   const key = dateKey(targetDate);
   if (!appState.data.tasks[key]) appState.data.tasks[key] = [];
   const planted = item.plantedDate || key;
-  const restored = createTask(item.text, key, item.notes || '', planted, item.taskId || null, item.projectId || null, !!item.completedDate, item.completedDate || null, item.spreadsheetId || null);
+  const restored = createTask(item.text, key, item.notes || '', planted, item.taskId || null, item.projectId || null, !!item.completedDate, item.completedDate || null, item.spreadsheetId || null, item.followUp || false);
   appState.data.tasks[key].push(restored);
   if (item.projectId) addProjectStepToProject(item.projectId, item.text, key, item.taskId || restored.id, restored.done);
   items.splice(idx, 1);
@@ -2427,7 +2433,7 @@ function addStep(pid, textInput, dateInput) {
   const stepId = uuid();
   project.steps.push({ id: stepId, text, date: key, done: false });
   if (!appState.data.tasks[key]) appState.data.tasks[key] = [];
-  appState.data.tasks[key].push(createTask(text, key, '', key, stepId, pid));
+  appState.data.tasks[key].unshift(createTask(text, key, '', key, stepId, pid, false, null, null, false));
   if (typeof textInput !== 'string') textInput.value = '';
   scheduleSave();
   renderProjects();
@@ -3022,6 +3028,80 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+/* Quick follow-up pop-out */
+function openQuickFollowUp(task, date, idx, btn) {
+  const popout = document.getElementById('quick-followup-popout');
+  const textInput = document.getElementById('quick-followup-text');
+  const dateInput = document.getElementById('quick-followup-date');
+  if (!popout || !textInput || !dateInput) return;
+  quickFollowUpTarget = { date, idx };
+  textInput.value = task.text || '';
+  dateInput.value = getNextDay(date) || dateKey(new Date());
+  popout.classList.add('open');
+  popout.style.display = 'flex';
+  popout.style.opacity = '0';
+  requestAnimationFrame(() => {
+    const rect = btn.getBoundingClientRect();
+    const popoutRect = popout.getBoundingClientRect();
+    let left = rect.left + rect.width / 2 - popoutRect.width / 2;
+    let top = rect.top - popoutRect.height - 10;
+    left = Math.max(10, Math.min(window.innerWidth - popoutRect.width - 10, left));
+    top = Math.max(10, top);
+    popout.style.left = `${left}px`;
+    popout.style.top = `${top}px`;
+    popout.style.opacity = '1';
+    textInput.focus();
+  });
+}
+
+function closeQuickFollowUp() {
+  const popout = document.getElementById('quick-followup-popout');
+  if (!popout) return;
+  popout.classList.remove('open');
+  popout.style.display = 'none';
+  popout.style.opacity = '';
+  popout.style.left = '';
+  popout.style.top = '';
+  quickFollowUpTarget = null;
+}
+
+function createQuickFollowUp() {
+  const textInput = document.getElementById('quick-followup-text');
+  const dateInput = document.getElementById('quick-followup-date');
+  if (!quickFollowUpTarget || !textInput || !dateInput) return;
+  const text = textInput.value.trim();
+  const date = dateInput.value;
+  if (!text || !date) return;
+  addDetailTask(date, text, true);
+  closeQuickFollowUp();
+}
+
+function initQuickFollowUp() {
+  const popout = document.getElementById('quick-followup-popout');
+  const closeBtn = document.getElementById('quick-followup-close');
+  const createBtn = document.getElementById('quick-followup-create');
+  const textInput = document.getElementById('quick-followup-text');
+  const dateInput = document.getElementById('quick-followup-date');
+  if (closeBtn) closeBtn.addEventListener('click', closeQuickFollowUp);
+  if (createBtn) createBtn.addEventListener('click', createQuickFollowUp);
+  if (textInput) {
+    textInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') createQuickFollowUp();
+      if (e.key === 'Escape') closeQuickFollowUp();
+    });
+  }
+  if (dateInput) {
+    dateInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeQuickFollowUp();
+    });
+  }
+  document.addEventListener('click', (e) => {
+    if (!popout || !popout.classList.contains('open')) return;
+    if (popout.contains(e.target) || e.target.closest('.follow-up-btn')) return;
+    closeQuickFollowUp();
+  });
 }
 
 /* Task notes overlay */
@@ -3731,7 +3811,7 @@ function initSpreadsheets() {
     if (taskToggle && taskToggle.checked) {
       const key = taskDate && taskDate.value ? taskDate.value : dateKey(new Date());
       if (!appState.data.tasks[key]) appState.data.tasks[key] = [];
-      appState.data.tasks[key].push(createTask(`Spreadsheet: ${sheet.title}`, key, '', key, null, null, false, null, sheet.id));
+      appState.data.tasks[key].unshift(createTask(`Spreadsheet: ${sheet.title}`, key, '', key, null, null, false, null, sheet.id, false));
       taskToggle.checked = false;
       if (taskDate) {
         taskDate.value = dateKey(new Date());
@@ -4445,6 +4525,7 @@ function initMain() {
   mainInitialized = true;
   initNativeDialogFocusFix();
   initNavigation();
+  initQuickFollowUp();
   initSettings();
   initTopbarScroll();
   initCloudBackup();

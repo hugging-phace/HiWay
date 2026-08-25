@@ -471,6 +471,17 @@
 
   <script src="../node_modules/@litejs/zip/zip.js"></script>
   <script src="../node_modules/@litejs/xlsx/xlsx.js"></script>
+  <!-- Quick follow-up pop-out -->
+  <div id="quick-followup-popout" class="quick-followup-popout glass-card" style="display:none;">
+    <div class="quick-followup-header">
+      <span>Quick Create follow up</span>
+      <button id="quick-followup-close" class="icon-btn" aria-label="Close">×</button>
+    </div>
+    <input type="text" id="quick-followup-text" class="glass-input" placeholder="Follow-up task...">
+    <input type="date" id="quick-followup-date" class="glass-input">
+    <button id="quick-followup-create" class="primary-btn">Create</button>
+  </div>
+
   <script src="test-mock.js"></script>
   <script src="recurring.js?v=5"></script>
   <script src="app.js?v=17"></script>
