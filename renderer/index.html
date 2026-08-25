@@ -483,6 +483,40 @@
     <button id="quick-followup-create" class="primary-btn">Create</button>
   </div>
 
+  <!-- Help pop-out -->
+  <div id="help-popout" class="help-popout glass-card" style="display:none;">
+    <div class="help-menu" id="help-menu">
+      <button class="help-option" data-action="tour">Tour This Page</button>
+      <button class="help-option" data-action="symbols">Learn The Symbols</button>
+    </div>
+    <div class="help-symbols" id="help-symbols" style="display:none;">
+      <div class="help-symbols-header">
+        <button id="help-symbols-back" class="icon-btn" title="Back" aria-label="Back">‹</button>
+        <h4>Symbols</h4>
+      </div>
+      <ul>
+        <li><span>✓</span> Complete a task</li>
+        <li><span>↩</span> Undo completion</li>
+        <li><span>⇄</span> Quick follow up</li>
+        <li><span>×</span> Delete / remove</li>
+        <li><span>⧗</span> Defer to another date</li>
+        <li><span>↓</span> Move completed task to bottom</li>
+        <li><span>⋮⋮</span> Drag to reorder</li>
+        <li><span>✎</span> Add or edit a note</li>
+        <li><span>●</span> Project or spreadsheet link</li>
+        <li><span>◈</span> Overview</li>
+        <li><span>◴</span> Calendar</li>
+        <li><span>↻</span> Recurring</li>
+        <li><span>◬</span> Projects</li>
+        <li><span>✦</span> Brainstorm</li>
+        <li><span>▤</span> Reports</li>
+        <li><span>▦</span> Spreadsheets</li>
+        <li><span>?</span> Help & tour</li>
+        <li><span>‹ ›</span> Previous / next task</li>
+      </ul>
+    </div>
+  </div>
+
   <script src="test-mock.js"></script>
   <script src="recurring.js?v=5"></script>
   <script src="app.js?v=17"></script>

@@ -4260,6 +4260,85 @@ let tourSteps = [];
 let tourIndex = 0;
 let tourTargetEl = null;
 
+function initHelpPopout() {
+  const popout = document.getElementById('help-popout');
+  const menu = document.getElementById('help-menu');
+  const symbols = document.getElementById('help-symbols');
+  const startBtn = document.getElementById('tour-btn');
+  const backBtn = document.getElementById('help-symbols-back');
+  if (!popout || !startBtn) return;
+
+  startBtn.addEventListener('click', () => {
+    if (popout.classList.contains('open')) {
+      closeHelpPopout();
+    } else {
+      openHelpPopout();
+    }
+  });
+
+  popout.querySelectorAll('.help-option').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.action;
+      if (action === 'tour') {
+        closeHelpPopout();
+        startTour();
+      } else if (action === 'symbols') {
+        menu.style.display = 'none';
+        symbols.classList.add('open');
+        symbols.style.display = 'flex';
+      }
+    });
+  });
+
+  if (backBtn) {
+    backBtn.addEventListener('click', () => {
+      symbols.classList.remove('open');
+      symbols.style.display = 'none';
+      menu.style.display = 'flex';
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!popout.classList.contains('open')) return;
+    if (popout.contains(e.target) || e.target.closest('#tour-btn')) return;
+    closeHelpPopout();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && popout.classList.contains('open')) closeHelpPopout();
+  });
+}
+
+function openHelpPopout() {
+  const popout = document.getElementById('help-popout');
+  const menu = document.getElementById('help-menu');
+  const symbols = document.getElementById('help-symbols');
+  const startBtn = document.getElementById('tour-btn');
+  if (!popout || !startBtn) return;
+  tourSteps = getTourSteps(appState.currentView || 'dashboard');
+  menu.style.display = 'flex';
+  symbols.style.display = 'none';
+  symbols.classList.remove('open');
+  popout.classList.add('open');
+  popout.style.display = 'flex';
+  const rect = startBtn.getBoundingClientRect();
+  const popoutRect = popout.getBoundingClientRect();
+  let left = rect.left;
+  let top = rect.bottom + 10;
+  if (left + 220 > window.innerWidth - 10) left = window.innerWidth - 230;
+  if (top + 160 > window.innerHeight - 10) top = rect.top - 160;
+  popout.style.left = `${left}px`;
+  popout.style.top = `${top}px`;
+  playSound('open');
+}
+
+function closeHelpPopout() {
+  const popout = document.getElementById('help-popout');
+  if (!popout) return;
+  popout.classList.remove('open');
+  popout.style.display = 'none';
+}
+
 function initTour() {
   const overlay = document.getElementById('tour-overlay');
   const tooltip = document.getElementById('tour-tooltip');
@@ -4272,7 +4351,7 @@ function initTour() {
 
   tourSteps = getTourSteps(appState.currentView || 'dashboard');
 
-  startBtn.addEventListener('click', () => { startTour(); });
+  initHelpPopout();
   nextBtn?.addEventListener('click', () => { nextTourStep(); });
   prevBtn?.addEventListener('click', () => { prevTourStep(); });
   skipBtn?.addEventListener('click', () => { endTour(); });
