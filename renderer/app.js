@@ -1218,8 +1218,13 @@ function bindMoveToBottom(li, date, idx) {
   handle.addEventListener('click', () => {
     const tasks = appState.data.tasks[date];
     if (!tasks || idx >= tasks.length) return;
+    const lastUncompleted = tasks.map((t, i) => !t.done ? i : -1).filter(i => i !== -1).pop();
+    if (lastUncompleted === undefined) return;
+    const targetIdx = lastUncompleted + 1;
+    if (targetIdx === idx) return;
     const [moved] = tasks.splice(idx, 1);
-    tasks.push(moved);
+    const insertAt = targetIdx > idx ? targetIdx - 1 : targetIdx;
+    tasks.splice(insertAt, 0, moved);
     playSound('click');
     scheduleSave();
     renderCalendar();
@@ -1254,10 +1259,11 @@ function buildDetailTaskItem(task, date, idx, allowDrag = false, fromUpcoming = 
     const planted = task.plantedDate || date;
     meta = `<span class="task-planted-meta task-meta">Planted ${formatShortDate(planted)}${planted !== date ? ` · now ${formatShortDate(date)}` : ''}</span>`;
   }
-  const isLast = (appState.data.tasks[date] || []).length - 1 === idx;
+  const tasks = appState.data.tasks[date] || [];
+  const hasUncompletedBelow = tasks.slice(idx + 1).some(t => !t.done);
   const dragHandle = allowDrag
-    ? (task.done && !isLast
-      ? `<button type="button" class="drag-handle move-down-handle" title="Move to bottom" aria-label="Move to bottom">↓</button>`
+    ? (task.done && hasUncompletedBelow
+      ? `<button type="button" class="drag-handle move-down-handle" title="Move below incomplete tasks" aria-label="Move below incomplete tasks">↓</button>`
       : `<span class="drag-handle" title="Drag to reorder">⋮⋮</span>`)
     : '';
   const followUpIcon = task.followUp ? `<span class="follow-up-icon" title="Follow up">⇄</span>` : '';
@@ -1273,8 +1279,9 @@ function buildDetailTaskItem(task, date, idx, allowDrag = false, fromUpcoming = 
   if (subtasksHtml) li.insertAdjacentHTML('beforeend', subtasksHtml);
   bindTaskActionButtons(li, task, date, idx);
   if (allowDrag) {
-    const isLast = (appState.data.tasks[date] || []).length - 1 === idx;
-    if (task.done && !isLast) bindMoveToBottom(li, date, idx);
+    const tasks = appState.data.tasks[date] || [];
+    const hasUncompletedBelow = tasks.slice(idx + 1).some(t => !t.done);
+    if (task.done && hasUncompletedBelow) bindMoveToBottom(li, date, idx);
     else bindDragReorder(li);
   }
   const badge = li.querySelector('.task-badge');
