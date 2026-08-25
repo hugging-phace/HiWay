@@ -1390,7 +1390,7 @@ html[data-theme="light"] .win-list li {
 }
 
 .calendar-shell {
-  flex: 1;
+  flex: 0.9;
   padding: 22px;
   display: flex;
   flex-direction: column;
@@ -1569,7 +1569,7 @@ html[data-theme="light"] .cal-day {
 }
 
 .task-panel {
-  flex: 1.35;
+  flex: 1.55;
   padding: 22px;
   min-width: 340px;
   display: flex;
@@ -1578,6 +1578,38 @@ html[data-theme="light"] .cal-day {
   min-height: 0;
   max-height: 100%;
   overflow: hidden;
+}
+
+.task-panel .task-actions,
+.task-panel .completed-actions {
+  gap: 4px;
+}
+.task-panel .task-actions .action-btn,
+.task-panel .completed-actions .action-btn {
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  font-size: 0.8rem;
+}
+.task-panel .task-actions .notes-btn,
+.task-panel .completed-actions .notes-btn {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 8px;
+  font-size: 0.72rem;
+}
+.task-panel .completed-badge {
+  font-size: 0;
+  padding: 3px 6px;
+  border-radius: 999px;
+  min-width: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.task-panel .completed-badge::before {
+  content: '✓';
+  font-size: 0.7rem;
 }
 
 .task-input-row {
@@ -1838,6 +1870,27 @@ html[data-theme="dark"] .action-btn.delete-btn { background: rgba(239, 68, 68, 0
 
 .drag-handle:active {
   cursor: grabbing;
+}
+
+button.drag-handle {
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  padding: 0;
+  margin: 0;
+  outline: none;
+  box-shadow: none;
+}
+
+.move-down-handle {
+  cursor: pointer;
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+.move-down-handle:hover {
+  opacity: 1;
+  color: var(--text);
 }
 
 .task-item.dragging {

@@ -1212,6 +1212,25 @@ function bindDragReorder(li) {
   });
 }
 
+function bindMoveToBottom(li, date, idx) {
+  const handle = li.querySelector('.move-down-handle');
+  if (!handle) return;
+  handle.addEventListener('click', () => {
+    const tasks = appState.data.tasks[date];
+    if (!tasks || idx >= tasks.length) return;
+    const [moved] = tasks.splice(idx, 1);
+    tasks.push(moved);
+    playSound('click');
+    scheduleSave();
+    renderCalendar();
+    renderDashboard();
+    renderProjects();
+    refreshDashboardDetail();
+    refreshPeek();
+    renderTaskPanel();
+  });
+}
+
 function taskBadge(task) {
   if (task.projectId) return `<button class="task-project-badge task-badge" data-pid="${escapeHtml(task.projectId)}" title="Open project"><span class="badge-dot" aria-hidden="true">●</span><span class="badge-text">Project</span></button>`;
   if (task.spreadsheetId) return `<button class="task-spreadsheet-badge task-badge" data-sid="${escapeHtml(task.spreadsheetId)}" title="Open spreadsheet"><span class="badge-dot" aria-hidden="true">●</span><span class="badge-text">Spreadsheet</span></button>`;
@@ -1235,7 +1254,12 @@ function buildDetailTaskItem(task, date, idx, allowDrag = false, fromUpcoming = 
     const planted = task.plantedDate || date;
     meta = `<span class="task-planted-meta task-meta">Planted ${formatShortDate(planted)}${planted !== date ? ` · now ${formatShortDate(date)}` : ''}</span>`;
   }
-  const dragHandle = allowDrag ? `<span class="drag-handle" title="Drag to reorder">⋮⋮</span>` : '';
+  const isLast = (appState.data.tasks[date] || []).length - 1 === idx;
+  const dragHandle = allowDrag
+    ? (task.done && !isLast
+      ? `<button type="button" class="drag-handle move-down-handle" title="Move to bottom" aria-label="Move to bottom">↓</button>`
+      : `<span class="drag-handle" title="Drag to reorder">⋮⋮</span>`)
+    : '';
   const followUpIcon = task.followUp ? `<span class="follow-up-icon" title="Follow up">⇄</span>` : '';
   li.innerHTML = `
     ${dragHandle}
@@ -1248,7 +1272,11 @@ function buildDetailTaskItem(task, date, idx, allowDrag = false, fromUpcoming = 
   const subtasksHtml = buildRecurringSubtasksHTML(task.subtasks);
   if (subtasksHtml) li.insertAdjacentHTML('beforeend', subtasksHtml);
   bindTaskActionButtons(li, task, date, idx);
-  if (allowDrag) bindDragReorder(li);
+  if (allowDrag) {
+    const isLast = (appState.data.tasks[date] || []).length - 1 === idx;
+    if (task.done && !isLast) bindMoveToBottom(li, date, idx);
+    else bindDragReorder(li);
+  }
   const badge = li.querySelector('.task-badge');
   if (badge) {
     badge.addEventListener('click', (e) => {
@@ -3217,6 +3245,7 @@ function renderTaskTextOverlay() {
   const doneBtn = document.getElementById('task-text-done');
   const undoBtn = document.getElementById('task-text-undo');
   const deferBtn = document.getElementById('task-text-defer');
+  const followUpBtn = document.getElementById('task-text-followup');
   const prevBtn = document.getElementById('task-text-prev');
   const nextBtn = document.getElementById('task-text-next');
   const status = document.getElementById('task-text-status');
@@ -3233,6 +3262,7 @@ function renderTaskTextOverlay() {
   }
   if (doneBtn) doneBtn.style.display = task.done ? 'none' : 'flex';
   if (undoBtn) undoBtn.style.display = task.done ? 'flex' : 'none';
+  if (followUpBtn) followUpBtn.style.display = task.done ? 'flex' : 'none';
   if (deferBtn) deferBtn.style.display = task.done ? 'none' : 'flex';
   if (prevBtn) prevBtn.style.display = taskTextTarget.idx > 0 ? 'flex' : 'none';
   if (nextBtn) nextBtn.style.display = taskTextTarget.idx < tasks.length - 1 ? 'flex' : 'none';
@@ -3255,6 +3285,7 @@ function initTaskTextOverlay() {
   const doneBtn = document.getElementById('task-text-done');
   const undoBtn = document.getElementById('task-text-undo');
   const deferBtn = document.getElementById('task-text-defer');
+  const followUpBtn = document.getElementById('task-text-followup');
   const deleteBtn = document.getElementById('task-text-delete');
   const prevBtn = document.getElementById('task-text-prev');
   const nextBtn = document.getElementById('task-text-next');
@@ -3290,6 +3321,12 @@ function initTaskTextOverlay() {
     if (!taskTextTarget) return;
     undoTaskForDate(taskTextTarget.date, taskTextTarget.idx);
     renderTaskTextOverlay();
+  });
+  if (followUpBtn) followUpBtn.addEventListener('click', () => {
+    if (!taskTextTarget) return;
+    const tasks = appState.data.tasks[taskTextTarget.date] || [];
+    const task = tasks[taskTextTarget.idx];
+    if (task) openQuickFollowUp(task, taskTextTarget.date, taskTextTarget.idx, followUpBtn);
   });
   if (deferBtn) deferBtn.addEventListener('click', () => {
     if (!taskTextTarget) return;
