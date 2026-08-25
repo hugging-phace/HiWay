@@ -3792,6 +3792,11 @@ html[data-theme="light"] .help-popout {
   background: rgba(238, 242, 247, 0.96);
   border: 1px solid rgba(255, 255, 255, 0.85);
 }
+.help-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 .help-option {
   width: 100%;
   text-align: left;
