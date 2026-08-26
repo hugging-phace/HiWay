@@ -586,6 +586,7 @@ html[data-theme="dark"] .settings-popout::before {
 .views-container:has(#view-calendar.active) {
   overflow-y: hidden;
   scrollbar-gutter: auto;
+  padding-bottom: 0;
 }
 
 .topbar {
@@ -1388,9 +1389,8 @@ html[data-theme="light"] .win-list li {
 
 #view-calendar.active {
   display: flex;
-  flex: 1;
-  min-height: 100%;
-  max-height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: hidden;
   background: var(--glass);
   border: 1px solid var(--border);
