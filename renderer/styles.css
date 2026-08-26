@@ -1419,40 +1419,46 @@ html[data-theme="light"] .win-list li {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  max-height: 65%;
-  overflow-y: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.calendar-shell::-webkit-scrollbar {
-  display: none;
+  overflow: hidden;
 }
 
 .calendar-controls {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
   margin-bottom: 18px;
   flex-wrap: wrap;
-  gap: 12px;
 }
+
+.calendar-controls .segmented-control {
+  flex: 0 0 auto;
+}
+
+.calendar-controls .cal-extras {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex-wrap: wrap;
-  gap: 12px;
 }
 
 .cal-nav {
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex-wrap: nowrap;
-  white-space: nowrap;
+  gap: 8px;
+  flex: 1 1 auto;
+  justify-content: center;
+  min-width: 0;
 }
 
 .cal-nav h3 {
   font-size: 1rem;
   min-width: 0;
   text-align: center;
+  flex: 1 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 #cal-prev,
@@ -1460,12 +1466,13 @@ html[data-theme="light"] .win-list li {
   width: 28px;
   height: 28px;
   font-size: 0.9rem;
+  flex: 0 0 auto;
 }
 
 .cal-extras {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -1508,9 +1515,10 @@ html[data-theme="light"] .win-list li {
   display: grid;
   grid-template-columns: repeat(7, minmax(32px, 1fr));
   gap: 6px;
-  flex: 1;
-  min-height: min-content;
+  flex: 1 1 auto;
+  min-height: 0;
   align-content: start;
+  overflow: hidden;
 }
 
 .cal-header {
