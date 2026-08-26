@@ -1384,8 +1384,8 @@ html[data-theme="light"] .win-list li {
 #view-calendar.active {
   display: flex;
   flex: 1;
-  min-height: 0;
-  max-height: 100%;
+  min-height: 100%;
+  max-height: none;
   overflow: visible;
 }
 
@@ -1395,14 +1395,8 @@ html[data-theme="light"] .win-list li {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  max-height: 100%;
-  overflow-y: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.calendar-shell::-webkit-scrollbar {
-  display: none;
+  max-height: none;
+  overflow: visible;
 }
 
 .calendar-controls {
@@ -1410,6 +1404,7 @@ html[data-theme="light"] .win-list li {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 18px;
+}
   flex-wrap: wrap;
   gap: 12px;
 }
@@ -1581,8 +1576,8 @@ html[data-theme="light"] .cal-day {
   flex-direction: column;
   gap: 14px;
   min-height: 0;
-  max-height: 100%;
-  overflow: hidden;
+  max-height: none;
+  overflow: visible;
 }
 
 .task-panel .task-actions,
@@ -1653,7 +1648,7 @@ html[data-theme="light"] .cal-day {
   gap: 8px;
   overflow-y: auto;
   overflow-x: hidden;
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   scrollbar-gutter: stable;
   container-type: inline-size;
