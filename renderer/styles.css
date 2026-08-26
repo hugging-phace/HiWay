@@ -1390,7 +1390,7 @@ html[data-theme="light"] .win-list li {
 }
 
 .calendar-shell {
-  flex: 0.9;
+  flex: 0.5;
   padding: 22px;
   display: flex;
   flex-direction: column;
@@ -1541,16 +1541,17 @@ html[data-theme="light"] .cal-day {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 
 .cal-day .day-number {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-weight: 700;
   font-size: clamp(0.65rem, 2.5vw, 0.8rem);
-  line-height: 1;
   z-index: 1;
 }
 
@@ -1569,9 +1570,9 @@ html[data-theme="light"] .cal-day {
 }
 
 .task-panel {
-  flex: 1.55;
+  flex: 2;
   padding: 22px;
-  min-width: 340px;
+  min-width: 420px;
   display: flex;
   flex-direction: column;
   gap: 14px;
