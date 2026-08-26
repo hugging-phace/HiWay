@@ -1396,7 +1396,13 @@ html[data-theme="light"] .win-list li {
   flex-direction: column;
   min-height: 0;
   max-height: 100%;
-  overflow: visible;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.calendar-shell::-webkit-scrollbar {
+  display: none;
 }
 
 .calendar-controls {
@@ -1467,7 +1473,7 @@ html[data-theme="light"] .win-list li {
   grid-template-columns: repeat(7, minmax(36px, 1fr));
   gap: 8px;
   flex: 1;
-  min-height: 0;
+  min-height: min-content;
   align-content: start;
 }
 
@@ -1540,7 +1546,6 @@ html[data-theme="light"] .cal-day {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 2px;
 }
 
 .cal-day .day-number {
@@ -1549,7 +1554,7 @@ html[data-theme="light"] .cal-day {
   left: 50%;
   transform: translate(-50%, -50%);
   font-weight: 700;
-  font-size: 0.8rem;
+  font-size: clamp(0.65rem, 2.5vw, 0.8rem);
   line-height: 1;
   z-index: 1;
 }
