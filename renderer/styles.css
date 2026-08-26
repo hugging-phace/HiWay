@@ -586,7 +586,7 @@ html[data-theme="dark"] .settings-popout::before {
 .views-container:has(#view-calendar.active) {
   overflow-y: hidden;
   scrollbar-gutter: auto;
-  padding-bottom: 0;
+  padding-bottom: 14px;
 }
 
 .topbar {
