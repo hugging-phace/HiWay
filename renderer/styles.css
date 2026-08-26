@@ -1387,6 +1387,28 @@ html[data-theme="light"] .win-list li {
   min-height: 100%;
   max-height: none;
   overflow: visible;
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: var(--shadow);
+}
+
+#view-calendar .calendar-shell,
+#view-calendar .task-panel {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+
+#view-calendar .calendar-shell:hover,
+#view-calendar .task-panel:hover {
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .calendar-shell {
@@ -1404,6 +1426,8 @@ html[data-theme="light"] .win-list li {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 18px;
+  flex-wrap: wrap;
+  gap: 12px;
 }
   flex-wrap: wrap;
   gap: 12px;
@@ -1412,12 +1436,14 @@ html[data-theme="light"] .win-list li {
 .cal-nav {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
 .cal-nav h3 {
-  font-size: 1.25rem;
-  min-width: 160px;
+  font-size: 1.1rem;
+  min-width: 0;
   text-align: center;
 }
 
@@ -1429,14 +1455,14 @@ html[data-theme="light"] .win-list li {
 }
 
 #cal-search {
-  width: 180px;
-  padding: 8px 12px;
+  width: 140px;
+  padding: 6px 10px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--glass);
   color: var(--text);
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
 #cal-search:focus {
@@ -1445,13 +1471,13 @@ html[data-theme="light"] .win-list li {
 }
 
 .share-day-btn {
-  padding: 8px 14px;
+  padding: 6px 10px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--glass);
   color: var(--text);
   font: inherit;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
   transition: transform 0.15s ease, background 0.15s ease;
@@ -1465,8 +1491,8 @@ html[data-theme="light"] .win-list li {
 
 .calendar-body {
   display: grid;
-  grid-template-columns: repeat(7, minmax(36px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(7, minmax(32px, 1fr));
+  gap: 6px;
   flex: 1;
   min-height: min-content;
   align-content: start;
@@ -1474,11 +1500,11 @@ html[data-theme="light"] .win-list li {
 
 .cal-header {
   text-align: center;
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
-  padding: 10px 0;
+  padding: 8px 0;
 }
 
 .cal-day {
@@ -1491,7 +1517,7 @@ html[data-theme="light"] .win-list li {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 4px;
+  padding: 2px;
   transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
   position: relative;
   overflow: hidden;
@@ -1551,7 +1577,7 @@ html[data-theme="light"] .cal-day {
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: clamp(0.65rem, 2.5vw, 0.8rem);
+  font-size: clamp(0.6rem, 2.2vw, 0.75rem);
   z-index: 1;
 }
 
