@@ -4643,10 +4643,36 @@ function initNativeDialogFocusFix() {
   };
 }
 
+let lastKnownDay = dateKey(new Date());
+
+function handleDayChange() {
+  const today = dateKey(new Date());
+  if (today === lastKnownDay) return;
+  const previousDay = lastKnownDay;
+  lastKnownDay = today;
+  if (!appState.user) return;
+  syncRecurringInstances();
+  autoRollover();
+  if (appState.selectedDate === previousDay) {
+    appState.selectedDate = today;
+    appState.calDate = new Date();
+  }
+  refreshAllViews();
+}
+
+function initDayChangeWatcher() {
+  setInterval(handleDayChange, 30000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) handleDayChange();
+  });
+  window.addEventListener('focus', handleDayChange);
+}
+
 function initMain() {
   if (mainInitialized) return;
   mainInitialized = true;
   initNativeDialogFocusFix();
+  initDayChangeWatcher();
   initNavigation();
   initQuickFollowUp();
   initSettings();
